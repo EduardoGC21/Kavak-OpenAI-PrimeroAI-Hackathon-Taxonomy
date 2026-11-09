@@ -19,9 +19,9 @@ Outputs, outside Git:
 
 ```text
 HACKATON/data/subsets/silver-n5000-seed42/
-  food/listings.parquet
+  food/food_listings.parquet
   food/manifest.json
-  fragrance/listings.parquet
+  fragrance/fragrance_listings.parquet
   fragrance/manifest.json
 ```
 
@@ -31,6 +31,13 @@ another version. Existing output folders are never overwritten. Example:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File pipelines/subset/run.ps1 -Seed 73
 ```
+
+`-Domain food` or `-Domain fragrance` exports just that domain. Optional
+`required_groups` in a domain's local sources configuration reserve listings by
+Pedia brand and title pattern. The current food configuration reserves ten each
+for Coca-Cola, Diet Coke and Coke Zero, still requiring confirmed Silver status
+and an active Pedia placement. Required groups replace slots; they never increase
+the sample size. No matching rules or output columns are changed.
 
 ## Sampling
 

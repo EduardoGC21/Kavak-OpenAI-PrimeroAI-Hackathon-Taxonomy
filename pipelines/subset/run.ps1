@@ -3,6 +3,7 @@ param(
     [int]$Seed = 42,
     [int]$Brands = 80,
     [double]$FocusFraction = 0.2,
+    [ValidateSet('food','fragrance','both')][string]$Domain = 'both',
     [string]$Image = 'm4r:b030afac47d1',
     [string]$Sources = '',
     [string]$Out = ''
@@ -16,14 +17,15 @@ $sourceConfig = Get-Content -LiteralPath $Sources -Raw | ConvertFrom-Json
 $dockerSources = @{ pedia_root = '/pedia'; domains = @{} }
 $mounts = @('--mount', "type=bind,source=$PSScriptRoot,target=/subset,readonly",
             '--mount', "type=bind,source=$($sourceConfig.pedia_root),target=/pedia,readonly")
-foreach ($domain in @('food','fragrance')) {
-    $entry = $sourceConfig.domains.$domain
-    $dockerSources.domains[$domain] = @{ legacy_bridge_sha256 = $entry.legacy_bridge_sha256; original_silver = $entry.silver; silver_snapshot = $entry.silver_snapshot }
+foreach ($sourceDomain in @('food','fragrance')) {
+    $entry = $sourceConfig.domains.$sourceDomain
+    $dockerSources.domains[$sourceDomain] = @{ legacy_bridge_sha256 = $entry.legacy_bridge_sha256; original_silver = $entry.silver; silver_snapshot = $entry.silver_snapshot }
+    if ($entry.required_groups) { $dockerSources.domains[$sourceDomain].required_groups = $entry.required_groups }
     foreach ($field in @('silver','native_bridge','legacy_bridge')) {
         $file = (Resolve-Path -LiteralPath $entry.$field).Path
-        $target = "/inputs/$domain-$field.parquet"
+        $target = "/inputs/$sourceDomain-$field.parquet"
         $mounts += @('--mount', "type=bind,source=$file,target=$target,readonly")
-        $dockerSources.domains[$domain][$field] = $target
+        $dockerSources.domains[$sourceDomain][$field] = $target
     }
 }
 $runRecord = Join-Path $workspace ("tasks\subset-run-" + [guid]::NewGuid().ToString('N'))
@@ -36,6 +38,6 @@ $outName = Split-Path -Leaf $Out
 $mounts += @('--mount', "type=bind,source=$dockerConfig,target=/inputs/sources.json,readonly",
              '--mount', "type=bind,source=$outParent,target=/output")
 docker run --rm --network none -e PYTHONDONTWRITEBYTECODE=1 @mounts $Image python /subset/subset.py `
-    --sources /inputs/sources.json --out "/output/$outName" --size $Size --seed $Seed --brands $Brands --focus-fraction $FocusFraction
+    --sources /inputs/sources.json --out "/output/$outName" --size $Size --seed $Seed --brands $Brands --focus-fraction $FocusFraction --domain $Domain
 if ($LASTEXITCODE -ne 0) { throw "Extractor exited $LASTEXITCODE; partial output preserved at $Out" }
 Write-Output "Silver subsets: $Out"

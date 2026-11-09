@@ -3,6 +3,7 @@ import argparse
 from collections import defaultdict, deque
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import duckdb
@@ -83,13 +84,42 @@ def sample(rows, count, seed, brands):
     return extras + take_balanced(core, count - len(extras), seed, brands)
 
 
+def include_required_groups(rows, picked, groups, seed):
+    required, counts, used = [], {}, set()
+    for group in groups:
+        eligible = [r for r in rows if r['item_key'] not in used
+                    and r['brand'] in group['pedia_brands']
+                    and re.search(group['title_regex'], r['listing_name'] or '', re.I)
+                    and not re.search(group.get('exclude_title_regex', r'(?!)'), r['listing_name'] or '', re.I)]
+        chosen = take_balanced(eligible, group['count'], seed, 10)
+        if len(chosen) != group['count']:
+            raise ValueError(f"Required group {group['name']}: only {len(chosen)} eligible listings")
+        required.extend(chosen)
+        used.update(r['item_key'] for r in chosen)
+        counts[group['name']] = len(chosen)
+    existing = {r['item_key'] for r in picked}
+    additions = [r for r in required if r['item_key'] not in existing]
+    # Preserve the previous seeded sample except for the slots needed by new rows.
+    keep = list(picked)
+    remaining = len(additions)
+    for position in range(len(keep)-1, -1, -1):
+        if remaining == 0:
+            break
+        if keep[position]['item_key'] not in used:
+            keep.pop(position)
+            remaining -= 1
+    if remaining:
+        raise ValueError('Required listing groups exceed the requested sample size')
+    return keep + additions, counts
+
+
 def extract(domain, config, release, pedia, destination, size, seed, brands, focus_fraction):
     con = duckdb.connect(config={'threads': 2, 'memory_limit': '2GB'})
     graph = pedia / release['layers']['graph']['path'] / 'construct/built.duckdb'
     con.execute('ATTACH ? AS graph (READ_ONLY)', [str(graph)])
     idcol = 'observation_key' if domain == 'food' else 'source_record_key'
     statuscol, allowed_status = ('food_scope_status', 'confirmed') if domain == 'food' else ('perfume_status', 'included')
-    con.execute(f'CREATE TEMP TABLE silver AS SELECT {idcol} AS id,source_id,_scope AS assembly,listing_key,market,observed_at FROM read_parquet(?) WHERE {statuscol}=?', [config['silver'], allowed_status])
+    con.execute(f'CREATE TEMP TABLE silver AS SELECT {idcol} AS id,source_id,_scope AS assembly,listing_key,market,observed_at,listing_name FROM read_parquet(?) WHERE {statuscol}=?', [config['silver'], allowed_status])
     con.execute("CREATE TEMP TABLE p AS SELECT *,try_cast(substr(mention_id,5) AS BIGINT) AS observation_id FROM graph.placement WHERE outcome IS DISTINCT FROM 'unplaced'")
     con.execute("CREATE TEMP TABLE links AS SELECT p.mention_id,s.id AS silver_id,'observation_id' AS join_method FROM p JOIN silver s ON s.id=p.observation_id AND s.source_id=p.source_id")
     bridge = Path(config['legacy_bridge'])
@@ -101,7 +131,7 @@ def extract(domain, config, release, pedia, destination, size, seed, brands, foc
     con.execute("CREATE TEMP TABLE model_candidates AS SELECT p.mention_id,e.entity_id AS model_id,0 AS depth FROM p JOIN graph.entity e ON e.entity_id=p.entity_id AND e.brand=p.brand WHERE e.type='ProductModel' AND e.deprecated_to IS NULL UNION ALL SELECT p.mention_id,m.entity_id,a.depth FROM p JOIN graph.entity e ON e.entity_id=p.entity_id AND e.brand=p.brand JOIN graph.ancestor a ON a.entity_id=e.entity_id JOIN graph.entity m ON m.entity_id=a.ancestor_id AND m.brand=p.brand WHERE e.type='ProductVariant' AND m.type='ProductModel' AND e.deprecated_to IS NULL AND m.deprecated_to IS NULL")
     con.execute('CREATE TEMP TABLE nearest AS SELECT DISTINCT mention_id,model_id FROM model_candidates QUALIFY depth=min(depth) OVER(PARTITION BY mention_id)')
     con.execute('CREATE TEMP TABLE models AS SELECT mention_id,min(model_id) AS model_id FROM nearest GROUP BY 1 HAVING count(*)=1')
-    con.execute("CREATE TEMP TABLE joined AS SELECT b.item_key,l.silver_id,p.mention_id,p.entity_id,p.brand,p.level,p.outcome,e.type AS entity_type,m.model_id,s.source_id,s.market,s.observed_at,l.join_method FROM links l JOIN p USING(mention_id) JOIN silver s ON s.id=l.silver_id JOIN native b ON b.id=s.id AND b.assembly=s.assembly AND b.source_id=s.source_id JOIN graph.entity e ON e.entity_id=p.entity_id AND e.brand=p.brand LEFT JOIN models m USING(mention_id) WHERE b.item_key IS NOT NULL AND e.deprecated_to IS NULL")
+    con.execute("CREATE TEMP TABLE joined AS SELECT b.item_key,l.silver_id,p.mention_id,p.entity_id,p.brand,p.level,p.outcome,e.type AS entity_type,m.model_id,s.source_id,s.market,s.observed_at,s.listing_name,l.join_method FROM links l JOIN p USING(mention_id) JOIN silver s ON s.id=l.silver_id JOIN native b ON b.id=s.id AND b.assembly=s.assembly AND b.source_id=s.source_id JOIN graph.entity e ON e.entity_id=p.entity_id AND e.brand=p.brand LEFT JOIN models m USING(mention_id) WHERE b.item_key IS NOT NULL AND e.deprecated_to IS NULL")
     conflicts = con.execute('SELECT count(*) FROM (SELECT item_key FROM joined GROUP BY 1 HAVING count(DISTINCT entity_id)>1)').fetchone()[0]
     con.execute('CREATE TEMP TABLE candidates AS SELECT * EXCLUDE(observed_at) FROM joined WHERE item_key NOT IN (SELECT item_key FROM joined GROUP BY 1 HAVING count(DISTINCT entity_id)>1) QUALIFY row_number() OVER(PARTITION BY item_key ORDER BY observed_at DESC NULLS LAST,silver_id,mention_id)=1')
     cur = con.execute('SELECT * FROM candidates ORDER BY item_key')
@@ -119,13 +149,14 @@ def extract(domain, config, release, pedia, destination, size, seed, brands, foc
         picked += sample(rest, size - focus_count, seed, max(10, round(brands * (1-focus_fraction))))
     else:
         picked = sample(rows, size, seed, brands)
+    picked, required_counts = include_required_groups(rows, picked, config.get('required_groups', []), seed)
     if len(picked) != size:
         raise ValueError(f'{domain}: sampling could only fill {len(picked)} rows')
     matched = con.execute('SELECT count(DISTINCT mention_id) FROM links').fetchone()[0]
     total = con.execute('SELECT count(*) FROM p').fetchone()[0]
     con.close()
     destination.mkdir(parents=True, exist_ok=False)
-    parquet = destination/'listings.parquet'
+    parquet = destination/f'{domain}_listings.parquet'
     # Stream wide evidence: joining/sorting every Silver column can decode gigabytes.
     source = pq.ParquetFile(config['silver'])
     wanted = pa.array([r['silver_id'] for r in picked], type=pa.int64())
@@ -155,6 +186,7 @@ def extract(domain, config, release, pedia, destination, size, seed, brands, foc
         'format': 'pedia_guided_silver_subset/v1', 'domain': domain, 'rows': size,
         'all_silver_columns_preserved': True, 'seed': seed, 'requested_brands': brands,
         'classification_column': statuscol, 'allowed_classifications': [allowed_status],
+        'required_listing_groups': required_counts,
         'selected_pedia_linked_listings': len(picked), 'unplaced_pedia_outcomes_allowed': False,
         'pedia_release': release['id'], 'pedia_release_sha256': release['sha256'],
         'graph_manifest_sha256': release['layers']['graph']['manifest_sha256'],
@@ -188,6 +220,7 @@ def main():
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--brands', type=int, default=80)
     parser.add_argument('--focus-fraction', type=float, default=.2, help='Fragrance share from explicit focus brands')
+    parser.add_argument('--domain', choices=['food', 'fragrance', 'both'], default='both')
     args = parser.parse_args()
     if args.size <= 0 or args.brands <= 0 or not 0 < args.focus_fraction < 1:
         parser.error('size and brands must be positive; focus-fraction must be between 0 and 1')
@@ -196,7 +229,7 @@ def main():
     config = json.loads(args.sources.read_text('utf-8-sig'))
     pedia = Path(config['pedia_root'])
     releases = json.loads((pedia/'CURRENT.json').read_text())['releases']
-    for domain in ('food', 'fragrance'):
+    for domain in (('food', 'fragrance') if args.domain == 'both' else (args.domain,)):
         extract(domain, config['domains'][domain], releases[domain], pedia,
                 args.out/domain, args.size, args.seed, args.brands, args.focus_fraction)
 

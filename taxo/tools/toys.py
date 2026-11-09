@@ -7,6 +7,8 @@ import hashlib
 import json
 import os
 import re
+import sys
+from importlib.metadata import version
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -57,6 +59,33 @@ def fingerprint(path: Path) -> dict:
             "modified_utc": datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat()}
 
 
+def run_references(source: Path) -> dict:
+    """Content versions, allowlisted configuration and runtime; never credentials."""
+    root = adapter.HOME.parents[1]
+    paths = [*adapter.HOME.glob("*.py"), *adapter.HOME.glob("*.yaml"),
+             adapter.HOME / "memory/rules/agentic.yaml", root / "rules/toys/proposals.yaml",
+             Path(__file__), root / "taxo/core/schemas.py", root / "taxo/core/rules.py",
+             root / "taxo/core/domain.py", root / "taxo/core/io.py", root / "taxo/lattice/vocab.py"]
+    return {"created_utc": datetime.now(timezone.utc).isoformat(),
+            "runtime": {"python": sys.version.split()[0], "pydantic": version("pydantic"), "pyyaml": version("pyyaml")},
+            "code_rule_sha256": {str(p.relative_to(root)).replace("\\", "/"): fingerprint(p)["sha256"] for p in paths},
+            "config": {"selected_source": str(source.resolve()),
+                       **{key: os.environ.get(key) for key in ("TAXO_DATA_DIR", "TAXO_TOYS_SOURCE_ROWS")}},
+            "command_argv": sys.argv}
+
+
+def write_artifact_index(output: Path, status: str, references: dict) -> dict:
+    """Index local artifacts; the index intentionally does not hash itself."""
+    index = {"schema_version": 1, "domain": "toys", "status": status,
+             "references": references,
+             "artifacts": [fingerprint(p) for p in sorted(output.rglob("*"))
+                           if p.is_file() and p.name != "artifact-index.json"],
+             "omitted": ["No model/validator/human traces: none were run",
+                         "No placements or tree outputs: readiness only"]}
+    (output / "artifact-index.json").write_text(json.dumps(index, indent=2), encoding="utf-8")
+    return index
+
+
 def direct_domain() -> Domain:
     return Domain("toys", yaml.safe_load((adapter.HOME / "pack.yaml").read_text(encoding="utf-8")))
 
@@ -69,9 +98,11 @@ def smoke(source: Path, output: Path) -> dict:
     rules = adapter.load_rules()
     report = {"status": "PASS", "mode": "smoke", "source": str(source.resolve()),
               "listing_contract": type(listing).__name__, "domain": listing.domain,
-              "id": listing.id, "rules_loaded": len(rules), "registered_domain_required": False}
+              "id": listing.id, "rules_loaded": len(rules), "registered_domain_required": False,
+              "references": run_references(source)}
     output.mkdir(parents=True, exist_ok=True)
     (output / "smoke.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    write_artifact_index(output, "PASS", report["references"])
     return report
 
 
@@ -160,6 +191,9 @@ def inspect_source(source: Path, max_rows: int, output: Path, catalog: Path | No
             schemas[name] = str(pq.ParquetFile(file["path"]).schema_arrow)
     report = {"status": "PASS", "kind": "bounded offline source readiness; not placement accuracy",
               "scope_version": decisions[0]["version"], "source_rows": len(rows), "max_rows": max_rows,
+              "schema_version": 1, "references": run_references(source),
+              "sample": {"method": "first up to five included IDs in source order; exploration only",
+                         "seed": None, "listing_ids": loaded_ids[:5]},
               "files": files, "schemas": schemas, "manifests": manifests, "catalog_lineage": lineage,
               "decisions": dict(sorted(counts.items())), "reasons": dict(sorted(reasons.items())),
               "included_profile": {"missing_source_brand": brand_missing, "accessory_evidence": accessory,
@@ -167,6 +201,9 @@ def inspect_source(source: Path, max_rows: int, output: Path, catalog: Path | No
               "preservation_checked": preserved, "rules": [r.model_dump(mode="json") for r in rules],
               "taxonomy_nodes": len(nodes), "readiness": "bootstrap_only" if not nodes else "explicit_tree_unvalidated",
               "paid_calls": 0, "sealed_gold_reads": 0,
+              "placement_rule_execution": {"evaluated_on_source": False, "firings": None,
+                                           "reason": "All placement rules are inert proposals; source scope is a separate screen"},
+              "failures": [],
               "blockers": ["Shared domain/rule registration pending integration owner",
                            "No human gold or validated rules", "No trusted taxonomy supplied",
                            "Shared numeric lattice/brand heuristics require toys integration review"]}
@@ -176,6 +213,7 @@ def inspect_source(source: Path, max_rows: int, output: Path, catalog: Path | No
     output.mkdir(parents=True, exist_ok=True)
     (output / "decisions.jsonl").write_text("\n".join(json.dumps(d) for d in decisions) + "\n", encoding="utf-8")
     (output / "readiness.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    write_artifact_index(output, "PASS", report["references"])
     return report
 
 
@@ -188,7 +226,18 @@ def main():
     parser.add_argument("--smoke", action="store_true")
     args = parser.parse_args()
     source = args.source or adapter.source_path()
-    report = smoke(source, args.output) if args.smoke else inspect_source(source, args.max_rows, args.output, args.catalog)
+    try:
+        report = smoke(source, args.output) if args.smoke else inspect_source(source, args.max_rows, args.output, args.catalog)
+    except Exception as exc:
+        # Do not write failure artifacts beside inputs if the output guard fails.
+        if args.output.resolve() == source.resolve().parent or source.resolve().is_relative_to(args.output.resolve()):
+            raise
+        args.output.mkdir(parents=True, exist_ok=True)
+        failure = {"status": "FAIL", "type": type(exc).__name__, "error": str(exc),
+                   "references": run_references(source)}
+        (args.output / "failure.json").write_text(json.dumps(failure, indent=2), encoding="utf-8")
+        write_artifact_index(args.output, "FAIL", failure["references"])
+        raise
     print(json.dumps({k: report[k] for k in ("status", "mode", "source_rows", "decisions", "readiness") if k in report}))
 
 

@@ -1,0 +1,11 @@
+name: fragrance
+families: [consumer_packaged]       # family rules shared with food (count, measure, bundle structure)
+levels: [brand, line, model, concentration, variant, size]
+data: fragrance/                     # under TAXO_DATA_DIR
+truth: labels/fresh150-harry.yaml, labels/exp01-harry-correct.yaml   # Harry's blind labels
+conventions: |
+  - Size (ml / oz) is a trade item on the product, never its own node.
+  - Same name + different concentration (EDT vs EDP vs parfum) = different products.
+  - Men's / women's versions are counterparts, not variants of each other.
+  - A shared word does not make a line.
+  - One product x N stays on the product; a gift set of different products is a set node.

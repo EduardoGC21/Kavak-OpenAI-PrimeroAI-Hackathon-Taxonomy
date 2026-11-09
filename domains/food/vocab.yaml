@@ -1,0 +1,11 @@
+# Food vocabulary: tokens that are variants or buying choices, not names. From Pedia's food conventions (size, pack
+# and multipack are never nodes) and the card_check word lists (SIZE, CLAIM).
+variant:
+  pack: [pack of, multipack, multi pack, variety pack, count, ct, pk, pack, packs, case of, box of, bag of, bulk,
+         family size, fun size, king size, share size, snack size, single serve, individually wrapped]
+  claim: [sugar free, gluten free, non gmo, organic, kosher, keto, vegan, no sugar added, reduced fat, low fat]
+size_pattern: '^\d+([.,]\d+)?(oz|g|kg|lb|lbs|ml|l|ct|pk|count|fl)?$|^(oz|ounce|ounces|g|grams|lb|lbs|ml|fl)$'
+strip: [snack, snacks, candy, candies, food, product, products, net wt, value]
+bind: [de, la, of, the, and, n, with, in]
+settings:
+  support_floor: 2

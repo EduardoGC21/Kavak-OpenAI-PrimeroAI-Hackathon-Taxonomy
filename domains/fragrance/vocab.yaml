@@ -1,0 +1,17 @@
+# Fragrance vocabulary: tokens that are variants, not names. From SPEC.md §4.1 and Pedia's
+# pedia_engine/legacy/lib2.py (CONC, AUDIENCE, FORMS, EDITION_WORDS).
+variant:
+  # drive round 2: elixir and intense name flankers ("Gold Elixir", "Hawas Intense"); they are not concentrations
+  concentration: [extrait de parfum, extrait, eau de parfum, edp, eau de toilette, edt, eau de cologne, edc, eau de perfume,
+                  parfum]
+  audience: [for women, for men, for her, for him, pour homme, pour femme, unisex, womens, mens, women, men]
+  form: [spray, travel size, body mist, hair mist, body spray, perfume oil, concentrated perfume oil, roll on,
+         rollerball, deodorant, body lotion, shower gel, aftershave, after shave, refill, tester, mini]
+  edition: [limited edition, special edition, collectors edition, holiday edition, new edition]
+  pack: [gift set, set, pack of, piece, pcs]
+size_pattern: '^\d+([.,]\d+)?(ml|oz|floz|fl|g)?$|^(ml|oz|fl|ounce|ounces|milliliter|milliliters)$'
+strip: [perfume, perfumes, fragrance, fragrances, cologne, scent, by, new, original, authentic, long lasting,
+        hair, travel, mist, fine, with]   # drive round 1: generic words that sat in wrong or too-deep names
+bind: [de, du, la, le, l, al, el, of, the, for, d]
+settings:
+  support_floor: 2

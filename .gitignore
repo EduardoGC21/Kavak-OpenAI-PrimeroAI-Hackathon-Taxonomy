@@ -8,3 +8,13 @@ __pycache__/
 .DS_Store
 Thumbs.db
 .obsidian/
+
+# data and run outputs never go in this public repo
+runs/
+data/
+*.jsonl
+!memory/*.jsonl
+.pytest_cache/
+!.env.example
+!docs/templates/*.jsonl
+.claude/

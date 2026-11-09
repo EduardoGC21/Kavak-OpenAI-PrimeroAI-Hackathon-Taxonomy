@@ -1,0 +1,9 @@
+id: veto/audience-conflict
+stage: place
+when:
+  - {fact: placement.step, eq: lattice}
+  - {check: audience_conflict}
+then: {veto: true, route: agent_title}
+status: active
+why: "Men's and women's versions are counterparts, not one product (domain convention)."
+origin: taxo/tools/checks.py audience_conflict

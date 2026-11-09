@@ -1,0 +1,63 @@
+# Agentic rules = lines in the Matcher's prompt. All PROPOSALS until tested in phase 2 (frozen validator, silver).
+# Source: Pedia food work (Primero-Hackathon repo docs/pedia-log-mining/FOOD.md) + Edu's export rule ids/flags.
+# Evidence is mostly LLM-judged blind A/B (Luna+Sol, ours/Harry); HUMAN where marked.
+
+- id: fd-size-not-node
+  text: Size, weight and pack count are buying choices on the product, never a node or part of a node name.
+  origin: Harry JC-02 / CNV-013/017; size_suffix_rename
+  evidence: "54/0 (LLM A/B); Harry v5 still had 749 size-in-name nodes"
+  status: proposal
+
+- id: fd-flavour-variant
+  text: A flavour or colour is a variant of the product. A formula claim (No FD&C, sugar free) is a twin variant. A mix-only pack is its own product.
+  origin: owner label (Starburst)
+  evidence: HUMAN owner label
+  status: proposal
+
+- id: fd-format-separate
+  text: A different format, coating or piece size (bites, minis, peanut vs plain) is a separate product, not a variant.
+  origin: M&M'S Peanut loss case
+  evidence: examples
+  status: proposal
+
+- id: fd-title-names-child
+  text: Move a listing to a variant only if its title names that variant. A marketplace flavour field or selected option alone is not enough.
+  origin: parent_to_child step
+  evidence: "28/17 -> 38/4 once added; 1,444 variant targets lifted back to the product (LLM A/B)"
+  status: proposal
+
+- id: fd-shop-not-brand
+  text: A shop or seller is not a brand. A listing with no maker in a shop is the shop's own label.
+  origin: shop step; Pedia flags SELLER_CONNECTION, brand_field_seller
+  evidence: "71/2 (LLM A/B); 992 seller pages confirmed by two checks"
+  status: proposal
+
+- id: fd-licensed-brand
+  text: A licensed product sits on the brand printed on the pack; the licensor is never the brand.
+  origin: owner decision
+  evidence: owner decision
+  status: proposal
+
+- id: fd-sub-brand
+  text: Put a sub-brand under its owner only when the pack names the owner and the owner is a consumer brand.
+  origin: s5 cross-brand lines v2
+  evidence: "52/2 (LLM A/B)"
+  status: proposal
+
+- id: fd-bundles
+  text: One product times N is a trade item on that product. Two or more different products form a set at their lowest common family. If the members are not named, abstain.
+  origin: Harry V4-6; Pedia flags SET_MEMBER_CANDIDATE, root_bundle
+  evidence: "181 needless 'Variety Pack' sets skipped"
+  status: proposal
+
+- id: fd-homonym-brands
+  text: Two makers can share a brand name (Halls by Mondelez vs Hall's Candies); keep them apart when the products say so.
+  origin: Halls split
+  evidence: "Haiku flagged 169 -> Opus 50 -> 48 split"
+  status: proposal
+
+- id: fd-not-found-abstain
+  text: Reject a brand node only with a named counterpart and a source. "Not found online" means unverified: abstain.
+  origin: v9e flip-flop
+  evidence: "357 of 1,152 earlier rejections flipped to keep on re-check"
+  status: proposal

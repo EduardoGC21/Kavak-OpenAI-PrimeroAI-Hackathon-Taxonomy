@@ -1,0 +1,8 @@
+id: route/lattice-unclear
+stage: route
+when:
+  - {fact: brand.slug, present: true}
+  - {fact: placement.level, eq: brand}
+then: {route: agent_title}
+status: active
+why: "The free steps stopped at the brand (name under the floor, unclear, or vetoed): the agent gets the title and the brand's page."

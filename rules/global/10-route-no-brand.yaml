@@ -1,0 +1,7 @@
+id: route/no-brand
+stage: route
+when:
+  - {fact: brand.slug, missing: true}
+then: {route: agent_search}
+status: active
+why: "No rung of the brand ladder named a known brand: only a search can say who makes it."

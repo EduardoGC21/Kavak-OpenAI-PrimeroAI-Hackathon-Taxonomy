@@ -1,0 +1,9 @@
+id: veto/form-conflict
+stage: place
+when:
+  - {fact: placement.step, eq: lattice}
+  - {check: form_conflict}
+then: {veto: true, route: agent_title}
+status: shadow
+why: "A body mist, lotion or deodorant of a scent is a typed child, not the scent. Shadow: logged, never acts."
+origin: taxo/tools/checks.py form_conflict; agentic rule fr-forms-typed-child

@@ -1,0 +1,11 @@
+{
+  "scope_version": "games-source-scope-v1",
+  "smoke": {
+    "direct_import": true,
+    "listing_id_type": "str",
+    "one_real_listing": true,
+    "status": "PASS",
+    "taxonomy_nodes": 0
+  },
+  "status": "PASS"
+}

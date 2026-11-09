@@ -2,36 +2,21 @@ param(
     [int]$Size = 500,
     [ValidateSet('food','fragrance','both')][string]$Domain = 'both',
     [string]$Image = 'm4r:b030afac47d1',
-    [string]$Sources = '',
     [string]$GoldSources = '',
     [string]$Out = ''
 )
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
-if (-not $Sources) { $Sources = Join-Path $workspace 'data\subset-sources.json' }
 if (-not $GoldSources) { $GoldSources = Join-Path $workspace 'data\gold-sources.json' }
-if (-not $Out) { $Out = Join-Path $workspace "data\subsets\gold-batches-n$Size" }
+if (-not $Out) { $Out = Join-Path $workspace "data\subsets\gold-rows-n$Size" }
 if (Test-Path -LiteralPath $Out) { throw "Output already exists: $Out. Set -Out to a new directory." }
-$sourceConfig = Get-Content -LiteralPath $Sources -Raw | ConvertFrom-Json
 $goldConfig = Get-Content -LiteralPath $GoldSources -Raw | ConvertFrom-Json
 $dockerSources = @{ domains = @{} }
 $mounts = @('--mount', "type=bind,source=$PSScriptRoot,target=/subset,readonly")
 $domains = if ($Domain -eq 'both') { @('food','fragrance') } else { @($Domain) }
 foreach ($sourceDomain in $domains) {
-    $entry = $sourceConfig.domains.$sourceDomain
     $gold = $goldConfig.domains.$sourceDomain
-    $target = "/inputs/$sourceDomain-silver.parquet"
-    $file = (Resolve-Path -LiteralPath $entry.silver).Path
-    $mounts += @('--mount', "type=bind,source=$file,target=$target,readonly")
-    $dockerEntry = @{ silver = $target; original_silver = $entry.silver; gold_release = $gold.release; views = @{}; historical_sources = @() }
-    $historyIndex = 0
-    foreach ($history in $gold.unlabeled_history) {
-        $file = (Resolve-Path -LiteralPath $history).Path
-        $target = "/inputs/$sourceDomain-history-$historyIndex.parquet"
-        $mounts += @('--mount', "type=bind,source=$file,target=$target,readonly")
-        $dockerEntry.historical_sources += @{ path = $target; original_path = $history }
-        $historyIndex++
-    }
+    $dockerEntry = @{ gold_release = $gold.release; views = @{} }
     foreach ($property in $gold.views.PSObject.Properties) {
         $viewName = $property.Name
         $viewFiles = @{ labels_sha256 = $property.Value.labels_sha256 }

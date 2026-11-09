@@ -81,93 +81,72 @@ calls or model inference run. Source locations are also documented in
 It can also run directly with `--sources <config.json> --out <new-directory>` in a
 compatible environment. No unit or end-to-end tests are included or run.
 
-## Original Gold subsets, in batches of 500 listings
+## Original Gold rows in batches of 500
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File pipelines/subset/run-gold.ps1
 ```
 
-This mode covers **all listing IDs connected to the existing Gold labels**, across
-all configured views and hierarchy levels. It partitions those IDs into disjoint
-batches of 500, retaining a smaller final batch. The population comes from the
-original Gold assignments and catalog memberships, independently of the existing
-5,000-row Silver samples. No classification, review-state or current Pedia filter
-removes Gold-linked listings.
-
-Each batch contains:
+This mode splits each original Gold label table into disjoint slices of **500
+Gold rows**, retaining the final remainder and the original source order. Every
+column, value, type and schema metadata remains unchanged. It neither batches
+Silver listing IDs nor expands Gold annotations into listing-level rows.
 
 ```text
-data/subsets/gold-batches-n500/<domain>/
-  listing_index.parquet
+data/subsets/gold-rows-n500/
   report.json
-  batch-00001/
-    listing_gold_links.parquet
+  <domain>/<view>/
+    batch-00001.parquet
+    batch-00002.parquet
     manifest.json
-    gold/<view>_labels.parquet
+    join_tables/
+      assignments.parquet
+      products.parquet
+      members.parquet
 ```
 
-The Gold files contain **only filtered original rows, with every original column,
-type, value and schema metadata preserved**. Their row counts can differ from
-500 because labels are shared by listings. `listing_gold_links.parquet` connects
-the 500 exact listing IDs to those original Gold rows through `view`,
-`hierarchy_id`, and `cluster_id`. It retains the original `product_key` and
-assignment `level`. Every available original level and view is kept. Gold label
-rows can therefore occur in several batches; listing IDs occur in only one batch.
-Silver listing payloads are not copied or enriched.
+The original data contains 8,550 Food and 3,455 Fragrance Gold label rows. Keeping
+the eleven original view tables separate produces 29 batch files in total. Each
+original Gold row appears in exactly one batch of its table. No Silver payloads
+or expanded listing-label bridge is generated.
 
-Batch ordering groups listings by their original deepest label, then original
-catalog brand/product, with stable ID ties. This keeps related examples together
-while retaining the whole population. Food prefers its listing view for ordering;
-Fragrance prefers its innermost-model view. No labels or clusters are generated.
+**The relationship to Silver is not one-to-one.** These Gold tables annotate
+clusters and have `hierarchy_id` and `cluster_id`, rather than listing IDs. A Gold
+row can reach many listings, and one listing can have labels at multiple original
+levels and views. The native mapping tables are copied unchanged once per view,
+separately from the Gold batches, to preserve the original joins:
 
-The signed 64-bit `silver_id` joins to `observation_key` for Food and
-`source_record_key` for Fragrance. It must never be converted to floating point.
-For example, using DuckDB Structured Query Language (SQL):
+- Product views: Gold `(hierarchy_id, cluster_id)` → assignments `product_key` →
+  products `product_id` → members `silver_id` → Silver observation ID.
+- Food listing view: Gold `(hierarchy_id, cluster_id)` → assignments `id` →
+  Silver `observation_key`. This view needs only the assignments table.
+
+For example, using DuckDB Structured Query Language (SQL) for a Food product view:
 
 ```sql
 SELECT s.*, g.*
-FROM read_parquet('batch-00001/listing_gold_links.parquet') b
+FROM read_parquet('batch-00001.parquet') g
+JOIN read_parquet('join_tables/assignments.parquet') a
+  USING (hierarchy_id, cluster_id)
+JOIN read_parquet('join_tables/products.parquet') p USING (product_key)
+JOIN read_parquet('join_tables/members.parquet') m USING (product_id)
 JOIN read_parquet('/path/to/food_listings.listings.parquet') s
-  ON s.observation_key = b.silver_id AND s.source_id = b.source_id
-JOIN read_parquet('batch-00001/gold/brand_v1_labels.parquet') g
-  ON g.hierarchy_id = b.hierarchy_id AND g.cluster_id = b.cluster_id
-WHERE b.view = 'brand_v1';
+  ON s.observation_key = m.silver_id AND s.source_id = m.source_id;
 ```
 
-The index records current and historical Silver join availability. Historical
-Fragrance Gold IDs can require a retained older export; reports pin those source
-paths and checksums. A historical Silver export may contain repeated observation
-IDs across assemblies, so scope the read to the intended assembly before joining.
-No Gold ID is removed when its unlabeled record is absent from current Silver.
+Fragrance uses `source_record_key` instead of `observation_key`. Preserve these
+signed 64-bit IDs exactly. Retained historical Silver exports may be needed for
+older Gold IDs; select the intended `_scope` when the export repeats observations
+across assemblies. A resulting join can have many rows per original Gold row.
 
-`run-gold.ps1` uses the existing `data/subset-sources.json` for current Silver and
-`data/gold-sources.json` for original Gold inputs. The latter has this shape
-(repeat `views` entries for every available view and add the Fragrance domain):
+`data/gold-sources.json` supplies `domains.<domain>.release` and
+`domains.<domain>.views.<view>` entries containing `labels`, `labels_sha256`,
+`assignments`, and, for product views, `members` and `products`. These refer to the
+original files; `labels_sha256` comes from the original Gold release manifest.
+Machine-specific configuration and datasets stay outside Git.
 
-```json
-{
-  "domains": {
-    "food": {
-      "release": "<original Gold release ID>",
-      "views": {
-        "brand_v1": {
-          "labels": "/path/to/brand_v1_labels.parquet",
-          "labels_sha256": "<checksum from the original release manifest>",
-          "assignments": "/path/to/original/mantis/tables/assignments.parquet",
-          "members": "/path/to/original/catalog/tables/members.parquet",
-          "products": "/path/to/original/catalog/tables/products.parquet"
-        }
-      },
-      "unlabeled_history": []
-    }
-  }
-}
-```
-
-The Food `listing` view needs labels and original binary assignments, without
-catalog members/products. `unlabeled_history` optionally lists retained Silver
-Parquet paths for join-availability reporting. Inputs mount read-only and runs
-use `--network none`. Source pins, output checksums and the container input
-configuration are recorded. Existing output directories are refused. Use
-`-Domain food`, `-Domain fragrance`, `-Size`, `-Sources`, `-GoldSources` or `-Out`
-as needed. The normal extraction does not run smoke, end-to-end or unit tests.
+The runner uses the existing M4R image with read-only inputs and no network
+access. Manifests retain source paths, checksums, row offsets, batch counts and
+join-file locations. Existing output directories are refused. Options are
+`-Domain food`, `-Domain fragrance`, `-Size`, `-GoldSources`, `-Image` and `-Out`.
+No smoke, end-to-end or unit tests run during extraction.

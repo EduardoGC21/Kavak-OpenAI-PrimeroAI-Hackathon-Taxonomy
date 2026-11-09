@@ -27,6 +27,13 @@ check resolution, final shared run/artifact logging inventory, and updated
 integration documentation. Full taxonomy/model runs and human gold evaluation
 remain for afterward.
 
+The first-checkpoint pending implementation items are now complete: both domain
+commits are imported unchanged, shared hooks/checks are connected, combined
+offline checks pass, and construction writes success/failure manifests and
+structured artifact logs. See `docs/evidence/domain-integration.json` and
+`docs/new-domain-harness.md`. Full taxonomy, human gold and model-run trace
+collection remain later work. The draft PR stays unmerged for coordinator review.
+
 Future distillation requires reviewable evidence -> candidate alternatives ->
 decision/abstention -> validator or human outcome -> rule/prompt change, with
 counterexamples and regressions. Save structured outputs and tool traces, not

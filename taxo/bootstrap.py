@@ -4,9 +4,14 @@ from __future__ import annotations
 import hashlib
 import importlib
 import json
+import os
+import subprocess
+import time
+import traceback
 from collections import Counter, defaultdict
 from dataclasses import asdict
 from pathlib import Path
+from datetime import datetime, timezone
 
 from taxo import evaluator, memory
 from taxo.core.config import DOMAINS_DIR, ROOT, RUNS_DIR
@@ -26,7 +31,13 @@ class ReportedBrands(Brands):
         return (key, "source_reported_unverified") if key in self.names else (None, "missing_source_brand")
 
 
-def construct(name: str, limit: int | None = None, output: Path | None = None) -> dict:
+def _scope(listing):
+    source = listing.fields.get("domain_scope") or listing.fields.get("scope") or (listing.fields.get(listing.domain) or {}).get("scope") or {}
+    decision = source.get("decision") or source.get("status")
+    return {**source, "decision": {"include": "accept", "exclude": "reject"}.get(decision, decision)}
+
+
+def _construct(name: str, limit: int | None = None, output: Path | None = None) -> dict:
     from taxo.pipeline import Item, run
 
     if limit is not None and limit <= 0:
@@ -54,7 +65,7 @@ def construct(name: str, limit: int | None = None, output: Path | None = None) -
     brands = ReportedBrands(names, suffixes=())
     items, screened = [], []
     for listing in listings:
-        screen = listing.fields.get("domain_scope") or {}
+        screen = _scope(listing)
         if screen.get("decision") in {"reject", "hold"}:
             screened.append({"id": listing.id, "decision": screen["decision"], "reason": screen.get("reason")})
         else:
@@ -73,12 +84,13 @@ def construct(name: str, limit: int | None = None, output: Path | None = None) -
         partitions[key].append(item)
         metadata[item.id] = part
     stats = Counter()
+    trace = []
     vocab = load_vocab(vocab_path, preserve_identity_tokens=True)  # raw construction never discards numeric identifiers
     for key, group in partitions.items():
         part = json.loads(key)
         stats.update(run(group, brands, vocab, route_rules, domain=name,
                          full_title=construction.get("full_title", True), candidate_rules=pair_rules, dedupe_support=True,
-                         listings=by_id, candidate_facts=hook, node_fields={name: part} if part else {}))
+                         listings=by_id, candidate_facts=hook, node_fields={name: part} if part else {}, trace=trace))
     nodes = {}
     placements = []
     for item in items:
@@ -101,7 +113,7 @@ def construct(name: str, limit: int | None = None, output: Path | None = None) -
             nodes[node["parent_id"]]["children"].append(node["id"])
     result = {"domain": name, "mode": "raw_only_proposals", "input_rows": len(listings), "limit": limit,
               "eligible_rows": len(items), "screened": dict(Counter(r["decision"] for r in screened)),
-              "unscoped_rows": sum(not l.fields.get("domain_scope") for l in listings),
+              "unscoped_rows": sum(not _scope(l).get("decision") for l in listings),
               "reported_brands": len(names), "proposed_nodes": len(nodes), "lattice": dict(stats),
               "identity_partitions": len(partitions), "candidate_facts_hook": hook.__module__ if hook else None,
               "raw_identity_tokens_preserved": True,
@@ -112,14 +124,68 @@ def construct(name: str, limit: int | None = None, output: Path | None = None) -
               "pack_sha256": hashlib.sha256((DOMAINS_DIR / name / "pack.yaml").read_bytes()).hexdigest(),
               "source_manifests": list({json.dumps(l.fields["source_manifest"], sort_keys=True): l.fields["source_manifest"]
                                         for l in listings if "source_manifest" in l.fields}.values()),
+              "input_paths": sorted({str(path) for l in listings for path in
+                  [l.fields.get("source_path"), *(l.fields.get("provenance") or {}).values(),
+                   *((l.fields.get("source_manifest") or {}).get("paths") or {}).values()] if path}),
               "gold_loaded": False, "accuracy": None, "agent_calls": 0,
+              "selection": {"method": "adapter_order", "seed": None, "listing_ids": [l.id for l in listings]},
+              "rule_events": {"candidate_evaluations": sum(e["stage"] == "candidate" for e in trace),
+                              "route_evaluations": sum(e["stage"] == "route" for e in trace)},
               "limitations": ["Source brand reports and lattice support are not official maker/product evidence.",
                               "Exact duplicate normalized names count once; near-duplicate marketplace pages still need review.",
                               "Proposed nodes require review and blind human gold before accuracy scoring or rule admission."],
               "output": str(out)}
     out.mkdir(parents=True, exist_ok=True)
     for filename, records in [("placements.jsonl", placements), ("nodes.jsonl", list(nodes.values())),
-                              ("screened.jsonl", screened)]:
+                              ("screened.jsonl", screened), ("rule-events.jsonl", trace),
+                              ("observations.jsonl", [{"id": l.id, "title": l.title, "source": l.source,
+                               "scope": _scope(l), "brand_evidence": "source_reported_unverified" if l.brand else "missing",
+                               "validator_outcome": None, "human_outcome": None} for l in listings])]:
         (out / filename).write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records), encoding="utf-8")
     (out / "metrics.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     return result
+
+
+def construct(name: str, limit: int | None = None, output: Path | None = None) -> dict:
+    """Save success/failure and artifact hashes for every fresh construction attempt."""
+    out = output or RUNS_DIR / name / "construction"
+    if out.exists() and any(out.iterdir()):
+        raise FileExistsError(f"{out} is nonempty; choose a fresh --output directory")
+    out.mkdir(parents=True, exist_ok=True)
+    started, t0 = datetime.now(timezone.utc).isoformat(), time.monotonic()
+    status = "failed"
+    result = None
+    try:
+        result = _construct(name, limit, out)
+        status = "completed"
+        return result
+    except Exception as error:
+        (out / "errors.jsonl").write_text(json.dumps({"type": type(error).__name__, "message": str(error),
+                                                    "traceback": traceback.format_exc()}) + "\n", encoding="utf-8")
+        raise
+    finally:
+        def fingerprint(path):
+            with path.open("rb") as stream:
+                digest = hashlib.file_digest(stream, "sha256").hexdigest()
+            return {"path": str(path.resolve()), "bytes": path.stat().st_size, "sha256": digest}
+        versioned = list((ROOT / "taxo").rglob("*.py"))
+        versioned += [p for p in (DOMAINS_DIR / name).rglob("*") if p.suffix in {".yaml", ".py"}]
+        for folder in (ROOT / "rules" / name, ROOT / "memory" / "rules"):
+            versioned += list(folder.glob("*.yaml"))
+        revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True)
+        configured = os.environ.get(f"TAXO_{name.upper()}_LISTINGS")
+        input_paths = {Path(p) for p in (result or {}).get("input_paths", [])}
+        if configured:
+            input_paths.add(Path(configured))
+        for path in list(input_paths):
+            input_paths.update((path.with_name("source_rows.parquet"), path.with_name("manifest.json")))
+        inputs = [fingerprint(p) for p in sorted(input_paths) if p.is_file()]
+        manifest = {"domain": name, "mode": "raw_only_proposals", "status": status, "started_utc": started,
+                    "elapsed_seconds": round(time.monotonic() - t0, 3), "git_head": revision.stdout.strip(),
+                    "config": {"limit": limit, "output": str(out), "source_selection": "explicit environment or adapter default"},
+                    "source_files": inputs, "code_and_rule_files": [fingerprint(p) for p in sorted(set(versioned))],
+                    "artifacts": [fingerprint(p) for p in sorted(out.iterdir()) if p.is_file() and p.name != "run-manifest.json"],
+                    "selection": result.get("selection") if result else None,
+                    "model_usage": {"calls": 0, "tokens": None, "cost": 0, "tool_agent_traces": "not_run"},
+                    "validation": {"human_gold": "not_supplied", "validator_calls": 0, "review_outcomes": "not_run"}}
+        (out / "run-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")

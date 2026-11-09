@@ -107,7 +107,8 @@ def _node_text(name: str, variants: dict[str, Counter], n: int, domain: str = "f
 def run(items: list[Item], brands: Brands, vocab, rules: list[evaluator.Rule], only: set[str] | None = None,
         lattice: dict | None = None, *, domain: str = "fragrance", full_title: bool = False,
         candidate_rules: list | None = None, dedupe_support: bool = False,
-        listings: dict[str, Listing] | None = None, candidate_facts=None, node_fields: dict | None = None) -> dict:
+        listings: dict[str, Listing] | None = None, candidate_facts=None, node_fields: dict | None = None,
+        trace: list[dict] | None = None) -> dict:
     """Place every item in place. `only`: count and place just these brands (experiments). `lattice`: count_brand options."""
     by_brand: dict[str, list[Item]] = defaultdict(list)
     for it in items:
@@ -165,8 +166,15 @@ def run(items: list[Item], brands: Brands, vocab, rules: list[evaluator.Rule], o
             it.shadow += [(f.check, f.detail) for f in pair.shadow]
             if pair.vetoed or pair.abstain:
                 it.reason, it.rule = "candidate_rule_review", pair.decided[0].check
+                if trace is not None:
+                    trace.append({"listing_id": it.id, "stage": "candidate", "candidate": tax[ck].model_dump(),
+                                  "selected": False, "rules": asdict(pair), "reason": it.reason})
                 continue
             out = evaluator.evaluate(rules, "place", facts, ctx)
+            if trace is not None:
+                trace.append({"listing_id": it.id, "stage": "candidate", "candidate": tax[ck].model_dump(),
+                              "selected": not out.then.get("veto", False), "rules": asdict(pair),
+                              "evaluator": asdict(out), "facts": facts})
             it.shadow += [(r, d) for r, _, d in out.shadow]
             if out.then.get("veto"):
                 it.reason, it.rule = f"vetoed:{out.rule}", out.rule
@@ -176,7 +184,11 @@ def run(items: list[Item], brands: Brands, vocab, rules: list[evaluator.Rule], o
         if only is not None and it.brand not in only:
             continue
         facts = {"brand": {"slug": it.brand}, "placement": {"level": it.level, "reason": it.reason, "step": it.step}}
+        if candidate_facts and listings is not None:
+            facts.update(candidate_facts(listings[it.id], Node(id="route-context", domain=domain, name="", fields=node_fields or {})))
         out = evaluator.evaluate(rules, "route", facts)
+        if trace is not None:
+            trace.append({"listing_id": it.id, "stage": "route", "evaluator": asdict(out), "facts": facts})
         it.shadow += [(r, d) for r, _, d in out.shadow]
         if out.then.get("settle"):
             it.step, it.rule = "rule", out.rule

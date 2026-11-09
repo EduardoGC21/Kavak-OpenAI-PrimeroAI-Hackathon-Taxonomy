@@ -198,6 +198,11 @@ CHECKS: dict[str, tuple[Callable, str]] = {  # name -> (function, default decisi
 def run(name: str, listing: Listing, node: Node, tax: Taxonomy, decision: str | None = None, **params) -> Finding | None:
     if name in CHECKS:
         fn, default = CHECKS[name]
+    elif listing.domain == "toys" and name in {"toys_identifier_evidence", "toys_offering_evidence"}:
+        # Explicit lazy bindings for the imported toys module; no cross-domain registry mutation.
+        from taxo.tools.toys import identifier_evidence, offering_evidence
+        fn = identifier_evidence if name == "toys_identifier_evidence" else offering_evidence
+        default = "abstain"
     else:
         # Explicit pack hook; no cross-domain registration or mutable global registry.
         import importlib

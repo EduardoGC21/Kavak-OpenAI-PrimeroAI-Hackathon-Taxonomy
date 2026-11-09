@@ -1,0 +1,284 @@
+{
+  "status": "PASS",
+  "base": "06be9acde9b3964415e900e7d9da23fd0ac8e2a5",
+  "pr": "https://github.com/HarryGomar/Kavak-OpenAI-PrimeroAI-Hackathon-Taxonomy/pull/4",
+  "imported_source_commits": {
+    "games": "459c07f8fcced97756c8f86b1ef681f6db61dfc6",
+    "toys": "827e37e3acb7f0da578c5104dc12098015db7b4d"
+  },
+  "checks": {
+    "clothing_e2e": "PASS: all 5000 source rows and 64-row construction",
+    "games_e2e": "PASS: current 4338 canonical and original-format rows",
+    "toys_e2e": "PASS: 123 assertions, 2341 accepted rows, both current clothing/footwear boundaries",
+    "combined_e2e": "PASS: 64 emitted rows per domain; parent/placement metadata, hook and artifact checks; expected failure log",
+    "existing_suite": "27 passed, 7 skipped (TAXO_DATA_DIR unset)",
+    "toys_games_asin_overlap": 0
+  },
+  "domains": {
+    "clothing": {
+      "emitted_source_population": 5000,
+      "bounded_input_rows": 64,
+      "proposed_nodes": 51,
+      "identity_partitions": 1,
+      "manifest": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\clothing\\run-manifest.json"
+    },
+    "toys": {
+      "emitted_source_population": 2341,
+      "bounded_input_rows": 64,
+      "proposed_nodes": 52,
+      "identity_partitions": 1,
+      "manifest": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\toys\\run-manifest.json"
+    },
+    "games": {
+      "emitted_source_population": 1113,
+      "bounded_input_rows": 64,
+      "proposed_nodes": 48,
+      "identity_partitions": 28,
+      "manifest": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\games\\run-manifest.json"
+    }
+  },
+  "artifact_index": [
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\clothing-e2e\\construction\\metrics.json",
+      "bytes": 5491,
+      "sha256": "7618525de20ce79be330fe6c452131e1feb63a7bb53f6bcbb23b0c96148299ed"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\clothing-e2e\\construction\\nodes.jsonl",
+      "bytes": 12348,
+      "sha256": "c441c519b76a8e10be78097dee48c0469255a6e1f29874826f9f4c923d29feb0"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\clothing-e2e\\construction\\observations.jsonl",
+      "bytes": 29610,
+      "sha256": "cb37fc6e5893091dd506309521758d988383b1cd12818bc8e4c8955a8083ae71"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\clothing-e2e\\construction\\placements.jsonl",
+      "bytes": 41688,
+      "sha256": "595395883f8463f51479d842a37b1f9d12437f013bee243b450a9d1987657261"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\clothing-e2e\\construction\\rule-events.jsonl",
+      "bytes": 15822,
+      "sha256": "5b17b301b8c3444db9366d18cd04c287e5da8d8d0aef566d0886056c25fc6621"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\clothing-e2e\\construction\\run-manifest.json",
+      "bytes": 16837,
+      "sha256": "a9167d88cfed2406ebcdfc3e8d09081f2d484def11eedbe0717534ba801c4e4b"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\clothing-e2e\\construction\\screened.jsonl",
+      "bytes": 431,
+      "sha256": "1c15b67aa159d2486aa92bf1f5b23c307ebec6ad129f564238ef2e960befaa24"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\clothing-e2e\\report.json",
+      "bytes": 33143,
+      "sha256": "d8e19a18790e9398c2b9eae828199314def0175c7c18f28178ca6c0829515da4"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\clothing-e2e\\smoke.json",
+      "bytes": 57,
+      "sha256": "0801d0900766722701f77e2e23fde634d916797491f4d1c9603c6138fcacb66d"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\clothing-e2e\\synthetic-source\\clothing_listings.parquet",
+      "bytes": 1984,
+      "sha256": "9ae60e21dca2d536bab7b5230997a7e9f1925e3aba8007e633bf4a86fef321af"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\clothing-e2e\\synthetic-source\\manifest.json",
+      "bytes": 211,
+      "sha256": "d7644b064349311c4fedf5985ef0c0d086f11533efcc78d4cd0cb8b1e947163b"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\clothing-e2e\\synthetic-source\\source_rows.parquet",
+      "bytes": 2347,
+      "sha256": "9a0ac9d67c7a7b7081aeb811a55905360eb30f14245b122753894b75347712a3"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\existing-suite.txt",
+      "bytes": 226,
+      "sha256": "f0f7eccff70d2130622cf5f8d5588b6d1372b75850b1238c62f98c58a6cb3fa1"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\games-e2e.json",
+      "bytes": 38353,
+      "sha256": "1e6fabd1493a982ca837722d626218ba920cee92822967dd401ec7afe6fcecaa"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\games-smoke.json",
+      "bytes": 229,
+      "sha256": "b93f75ee47e9096b077729e7ccff8fe2bde11b8a2736a595c659f2f85201880f"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\clothing\\metrics.json",
+      "bytes": 5140,
+      "sha256": "07c990255adc3c57b71994e2e5c04cd618b488b5ac251579e31f7a7be16614e2"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\clothing\\nodes.jsonl",
+      "bytes": 12348,
+      "sha256": "c441c519b76a8e10be78097dee48c0469255a6e1f29874826f9f4c923d29feb0"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\clothing\\observations.jsonl",
+      "bytes": 29610,
+      "sha256": "cb37fc6e5893091dd506309521758d988383b1cd12818bc8e4c8955a8083ae71"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\clothing\\placements.jsonl",
+      "bytes": 41688,
+      "sha256": "595395883f8463f51479d842a37b1f9d12437f013bee243b450a9d1987657261"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\clothing\\rule-events.jsonl",
+      "bytes": 15822,
+      "sha256": "5b17b301b8c3444db9366d18cd04c287e5da8d8d0aef566d0886056c25fc6621"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\clothing\\run-manifest.json",
+      "bytes": 16681,
+      "sha256": "d1bdff2cf15d77a3ab0d6b89ad7b238961797e0a8b4e20c58d3376f0834e4685"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\clothing\\screened.jsonl",
+      "bytes": 431,
+      "sha256": "1c15b67aa159d2486aa92bf1f5b23c307ebec6ad129f564238ef2e960befaa24"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\failure-record\\errors.jsonl",
+      "bytes": 540,
+      "sha256": "6a88129587091da252b18076bc1ab99c72f1ba1643fa1013cfbeb38475d10a63"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\failure-record\\run-manifest.json",
+      "bytes": 13227,
+      "sha256": "e9eb2fbe073d571a76cd5006037ca543fb300283df1e6d67ef6a9c5083b0c247"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\games\\metrics.json",
+      "bytes": 3987,
+      "sha256": "d82a7df9083a44ebf298aeb45f5f02525a4c40729ae9a7df305900b8b3221a62"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\games\\nodes.jsonl",
+      "bytes": 12736,
+      "sha256": "10c22f567866e05fa77b344b4e53657e6d9c7bed3e8e9888ca42bc1afd1ef4c8"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\games\\observations.jsonl",
+      "bytes": 33072,
+      "sha256": "93826b004f634296c5f7e0a75f86a9b9f4c76a8fc525bb77566e7ca7a6369d9f"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\games\\placements.jsonl",
+      "bytes": 58008,
+      "sha256": "ef25383a741126ec4af119fddb18bafed722d6d2e7c54aa14852c13027f3e706"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\games\\rule-events.jsonl",
+      "bytes": 35848,
+      "sha256": "4dd1aec939baf7ac32e989b0ff0ef275aee44c33334e98e604aa0113a7fe5e34"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\games\\run-manifest.json",
+      "bytes": 18320,
+      "sha256": "aa89fb7fa2a01b7075b19bad1b267ab029e9daf91674b2affa3c99369c9e43f7"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\games\\screened.jsonl",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\report.json",
+      "bytes": 16610,
+      "sha256": "b4c88026d2880a2e4c32f220a34439d1a96077d596990315850cf165303b0250"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\toys\\metrics.json",
+      "bytes": 3651,
+      "sha256": "ec7a3656d510ab2740837f000ca8a57983777088349ef063b07b3670da711729"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\toys\\nodes.jsonl",
+      "bytes": 12619,
+      "sha256": "f1cf56776ce74472759fd992b639d70aa373296018d697bebe353458beb33680"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\toys\\observations.jsonl",
+      "bytes": 35290,
+      "sha256": "f4ebbd66eaa3679602e716c83347fb55c9de8b9e2353bf93423666c04790bf5d"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\toys\\placements.jsonl",
+      "bytes": 48579,
+      "sha256": "964c4103ca9c037fdb3e00a03e67c20fa5664d39253f491659171b90e433d0bc"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\toys\\rule-events.jsonl",
+      "bytes": 21925,
+      "sha256": "305feb3eadc1a0bdc549a8c7d1b1787cbde3338b8a39ded18d03e59e83dde0dd"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\toys\\run-manifest.json",
+      "bytes": 17159,
+      "sha256": "2cb9903e6874f1ba730b65278c795ececdb6195b5fb878c8c6ffba73e87d4723"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\integrated-baseline\\toys\\screened.jsonl",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\toys-e2e\\boundary-0\\decisions.jsonl",
+      "bytes": 1941715,
+      "sha256": "4936ae57f0823b4903a65910ebbec9711de13bd32651c5dae73d20b40709fa2e"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\toys-e2e\\boundary-0\\readiness.json",
+      "bytes": 7800,
+      "sha256": "8fc4c24262ee0e93f7461f48a64040aa4c68f369dae23f00a1d23e4f4d36276e"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\toys-e2e\\boundary-1\\decisions.jsonl",
+      "bytes": 1143883,
+      "sha256": "20c5d66b5a12cae9180ccf3ea7e0224554639bb4e81e07f0e615f44dc22abe06"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\toys-e2e\\boundary-1\\readiness.json",
+      "bytes": 7799,
+      "sha256": "dc8201bf0259ed404c01ccab88bbb8cd78bafd7b36748abda67f90994e6df86b"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\toys-e2e\\e2e.json",
+      "bytes": 36836,
+      "sha256": "043854af227c93a1cc63b0d75cb0549f3494a3acac2872b13b19d46abbd44eb5"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\toys-e2e\\real-input\\decisions.jsonl",
+      "bytes": 1581419,
+      "sha256": "9cf278cd1a5a95a39fe1cac437677caff898d03bb6c2870b83cd5e2593d577d4"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\toys-e2e\\real-input\\readiness.json",
+      "bytes": 16516,
+      "sha256": "afb75c205f179167dc304f36ba149da819eec29f6a165f6403b60f58b6aae8e2"
+    },
+    {
+      "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\toys-smoke\\smoke.json",
+      "bytes": 305,
+      "sha256": "e8ac7bb4caf52dcf28a00797b93504680b2759054dfb50dd968a80c8be8d5bc8"
+    }
+  ],
+  "limitations": [
+    "Raw/source screens are exploratory machine evidence, not gold or accuracy.",
+    "No full taxonomy, paid agents, validator, human review or actual usage traces were run.",
+    "Games/toys construction sees adapter-filtered accepted rows; full source scope outcomes are indexed in separate readiness reports.",
+    "Seven generic adapter tests skipped because no single TAXO_DATA_DIR provides all seven existing/new domains; dedicated real-input E2Es passed."
+  ],
+  "logging_contract": "docs/new-domain-harness.md#run-artifacts-and-distillation-evidence"
+}

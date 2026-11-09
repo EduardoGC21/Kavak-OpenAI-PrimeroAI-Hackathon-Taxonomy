@@ -1,6 +1,6 @@
 {
   "status": "PASS",
-  "inspected_at_utc": "2026-11-09T20:54:35.470702+00:00",
+  "inspected_at_utc": "2026-11-09T20:58:28.132225+00:00",
   "command": [
     "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\.venv\\Scripts\\python.exe",
     "-m",
@@ -12,7 +12,7 @@
     "--catalog",
     "C:/Users/eduar/Desktop/HACKATON/data/different_lines/amazon.parquet",
     "--output",
-    "runs/clothing-verification/verified-baseline",
+    "runs/combined-verification/clothing-e2e",
     "--limit",
     "64"
   ],
@@ -292,6 +292,9 @@
       "supported": 1,
       "families": 0
     },
+    "identity_partitions": 1,
+    "candidate_facts_hook": null,
+    "raw_identity_tokens_preserved": true,
     "pair_rules": [
       {
         "id": "count_agree",
@@ -318,23 +321,33 @@
     "agentic_instructions": [],
     "vocab_sha256": "ce0427b6f1b49da14acfd76001e4af9d8941063ff9d85aa73ad943a58391d3cf",
     "pack_sha256": "c466bca540969d5638906a3b77dd32435f8eeb88666846ac3d775332ce9f8307",
+    "input_paths": [
+      "G:\\.shortcut-targets-by-id\\1lo5XQFqwWZ4oV915bOgMLt9KPW0IeTv4\\Hackathon-Kavak-OpenAI-Primero\\DATA\\Listings\\RAW\\clothing\\subset-1\\clothing_listings.parquet",
+      "G:\\.shortcut-targets-by-id\\1lo5XQFqwWZ4oV915bOgMLt9KPW0IeTv4\\Hackathon-Kavak-OpenAI-Primero\\DATA\\Listings\\RAW\\clothing\\subset-1\\manifest.json",
+      "G:\\.shortcut-targets-by-id\\1lo5XQFqwWZ4oV915bOgMLt9KPW0IeTv4\\Hackathon-Kavak-OpenAI-Primero\\DATA\\Listings\\RAW\\clothing\\subset-1\\source_rows.parquet"
+    ],
     "gold_loaded": false,
     "accuracy": null,
     "agent_calls": 0,
+    "rule_events": {
+      "candidate_evaluations": 2,
+      "route_evaluations": 59
+    },
     "limitations": [
       "Source brand reports and lattice support are not official maker/product evidence.",
       "Exact duplicate normalized names count once; near-duplicate marketplace pages still need review.",
       "Proposed nodes require review and blind human gold before accuracy scoring or rule admission."
     ],
-    "output": "runs\\clothing-verification\\verified-baseline\\construction"
+    "output": "runs\\combined-verification\\clothing-e2e\\construction"
   },
   "verification": {
     "smoke": "PASS: refreshed taxo.cli inspect clothing --limit 2 and CLI --construct --limit 2",
     "e2e": "PASS: all 5000 source observations preserved; 64-row construction",
     "existing_suite": "25 passed, 5 data-dependent adapter checks skipped (TAXO_DATA_DIR unset)",
     "base_commit": "06be9acde9b3964415e900e7d9da23fd0ac8e2a5",
-    "full_local_report": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\clothing-verification\\verified-baseline\\report.json",
-    "baseline_test_output": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\clothing-verification\\baseline-tests.txt"
+    "full_local_report": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\clothing-e2e\\report.json",
+    "baseline_test_output": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\clothing-verification\\baseline-tests.txt",
+    "combined_existing_suite": "27 passed, 7 data-dependent adapter checks skipped; see runs/combined-verification/existing-suite.txt"
   },
   "interpretation": "Exploratory machine screening and synthetic engineering expectations, not human gold, taxonomy accuracy or independent rule validation.",
   "versions": {
@@ -356,18 +369,19 @@
     "domains\\fragrance\\pack.yaml": "e849c309a4089ed416fe50cca97a68091a4f22611bcc3c2946da754c65954cbc",
     "pyproject.toml": "15633ea3afa6c49741f20e3480e60d8cee1b2cb96461923bdf4ecfdd90c7a1a1",
     "rules\\clothing\\proposals.yaml": "232340acfc9397b61b84691e62d806ddb5356ec1e9c470d91fbbe845d6a87e6f",
-    "taxo\\bootstrap.py": "b855db6756c6dd09b9e39ddf269d3675a516734ac7f323b9e65e31cb46f6a766",
+    "taxo\\bootstrap.py": "61901b98a978e1143d7fed6b459c264b30cbf0ae746e23b02b16b81e35bdc5cb",
     "taxo\\cli.py": "35377f8aadbc640c72ba35c9d530ce3b31784adadf875067c5e332192c80d97f",
     "taxo\\core\\domain.py": "daad07635a157d8e5a00464ea90c3c3f67425370be888bab479a5caab1b7fca1",
     "taxo\\evaluator.py": "4837a8b234f84a0115e67c730cae49933dc68a7ed081228f7cf5cdd3ea072ea0",
     "taxo\\gate.py": "2b6496d3356504193a397e7b8eae22046a3d82411398e37a0d167a5aef4de13a",
-    "taxo\\lattice\\vocab.py": "aeec6c9fa049b558363a0babf4ad162c6d7fd70d5d4e3c725d742d9d158f0362",
+    "taxo\\lattice\\vocab.py": "9427f4d8f8c342f98de0751a1ae2f580c11903a0ff37072757ff746f6b7fc4b3",
     "taxo\\memory.py": "d8ed630a7b89a2a3e30ebe73ad4bc9f270c5ec227c240a8b543df478a6271596",
     "taxo\\parse.py": "c01a05a6820c1f0f352178ef8b31f7110b13adca4ac3f8661215a951e6443837",
-    "taxo\\pipeline.py": "88b4737fe870237391f246a303445ca5aded88c69b459bf47c617201e93b64c7",
+    "taxo\\pipeline.py": "c89d6400646a405ab0dae4fd07e653fd6bcb60fc4807c6a5a70d5b9645783881",
     "taxo\\roles\\placer.py": "726a6190c67b6d3045b51664037ff8147d69c6a6d586e624f900a1a6b66bb409",
-    "taxo\\tools\\checks.py": "185caecb89c68880193c5746e3cc37d51982bd11ee724231800d8ecb16a51490",
-    "taxo\\tools\\clothing.py": "762c64b03be102639168d521fa6128149b2bcbbb41345b4a620e0d00f961ba43"
+    "taxo\\tools\\checks.py": "bb7a4593d9d05b65cffb9d62d9969209423c63062afe3c71de90bc8457c47265",
+    "taxo\\tools\\clothing.py": "762c64b03be102639168d521fa6128149b2bcbbb41345b4a620e0d00f961ba43",
+    "checks/domain_integration.py": "61de9080c741ed3c359030470c5f0371839f095d97f92f3e2cf68fbb772ca4d5"
   },
   "changed_files": [
     "checks/clothing_readiness.py",
@@ -397,5 +411,11 @@
     "taxo/roles/placer.py",
     "taxo/tools/checks.py",
     "taxo/tools/clothing.py"
-  ]
+  ],
+  "selection": {
+    "method": "adapter_order",
+    "seed": null,
+    "rows": 64,
+    "ids_location": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-clothing\\runs\\combined-verification\\clothing-e2e\\construction\\metrics.json"
+  }
 }

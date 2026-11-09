@@ -26,8 +26,10 @@ def tokens(text: str | None) -> tuple[str, ...]:
     return tuple(re.findall(r"\d+(?:[.,]\d+)?[a-z]*|[a-z0-9]+", s))
 
 
-def load(path: Path) -> CountVocab:
+def load(path: Path, *, preserve_identity_tokens: bool | None = None) -> CountVocab:
     v = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if preserve_identity_tokens is not None:
+        v["preserve_identity_tokens"] = preserve_identity_tokens
     phrases: list[tuple[tuple[str, ...], str, str]] = []  # (tokens, axis, canonical)
     for axis, items in (v.get("variant") or {}).items():
         for p in items:

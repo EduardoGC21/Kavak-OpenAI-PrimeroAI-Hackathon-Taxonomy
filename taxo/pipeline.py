@@ -106,7 +106,8 @@ def _node_text(name: str, variants: dict[str, Counter], n: int, domain: str = "f
 
 def run(items: list[Item], brands: Brands, vocab, rules: list[evaluator.Rule], only: set[str] | None = None,
         lattice: dict | None = None, *, domain: str = "fragrance", full_title: bool = False,
-        candidate_rules: list | None = None, dedupe_support: bool = False) -> dict:
+        candidate_rules: list | None = None, dedupe_support: bool = False,
+        listings: dict[str, Listing] | None = None, candidate_facts=None, node_fields: dict | None = None) -> dict:
     """Place every item in place. `only`: count and place just these brands (experiments). `lattice`: count_brand options."""
     by_brand: dict[str, list[Item]] = defaultdict(list)
     for it in items:
@@ -154,9 +155,12 @@ def run(items: list[Item], brands: Brands, vocab, rules: list[evaluator.Rule], o
             fam = [_title(root_of[ck])] if ck in root_of else []
             if ck not in tax:
                 tax[ck] = Node(id=f"{slug}/{ck}", domain=domain, name=_title(ck),
-                               path=[name] + fam + [_node_text(ck, c.variants, c.n, domain)])
+                               path=[name] + fam + [_node_text(ck, c.variants, c.n, domain)], fields=node_fields or {})
             facts = {"placement": {"step": "lattice", "level": "product", "cluster_n": c.n}, "brand": {"slug": slug}}
-            ctx = {"listing": Listing(id=it.id, domain=domain, title=it.title, brand=name), "node": tax[ck], "tax": tax}
+            listing = listings[it.id] if listings is not None else Listing(id=it.id, domain=domain, title=it.title, brand=name)
+            ctx = {"listing": listing, "node": tax[ck], "tax": tax}
+            if candidate_facts:
+                facts.update(candidate_facts(listing, tax[ck]))
             pair = run_rules(candidate_rules or [], ctx["listing"], tax[ck], tax)
             it.shadow += [(f.check, f.detail) for f in pair.shadow]
             if pair.vetoed or pair.abstain:

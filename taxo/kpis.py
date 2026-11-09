@@ -50,7 +50,9 @@ def row(domain: str, result: dict, loop: str, round_: int, label: str, vocab: Pa
     return {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "domain": domain, "loop": loop, "round": round_, "label": label,
         "code": _git(), "vocab": _hash([vocab]), "rules": _hash([p for d in rules_dirs for p in d.glob("*.yaml")]),
+        "data": result.get("data", "edu"),
         "gold_dev": _gold(result.get("dev")), "gold_sealed": _gold(result.get("sealed")),
+        "human_dev": _gold(result.get("human_dev")), "human_sealed": _gold(result.get("human_sealed")),
         "silver": silver,                                  # validator version, agreement, flag precision: none yet
         "pedia_dev_in_subset": _gold(result.get("dev_in_subset", {}).get("pedia")),
         "shares": {k: sh[k][1] for k in ("placed_by_lattice", "settled_by_rule", "to_agent", "placed_by_agent") if k in sh},
@@ -75,14 +77,16 @@ def history(domain: str) -> list[dict]:
 def table(rows: list[dict]) -> str:
     def f(x):
         return "-" if x is None else f"{x:.3f}" if isinstance(x, float) else str(x)
-    cols = ["ts", "loop/round", "label", "code", "vocab", "dev exact", "dev right+shallower", "dev harm", "dev L1",
-            "sealed exact", "silver agree", "lattice", "to agent"]
+    cols = ["ts", "data", "loop/round", "label", "vocab", "dev exact", "dev right+shallower", "dev harm", "dev L1",
+            "sealed exact", "human dev exact", "human sealed exact", "silver agree", "lattice", "to agent"]
     out = ["| " + " | ".join(cols) + " |", "|" + "---|" * len(cols)]
     for r in rows:
         d, s, sv = r.get("gold_dev") or {}, r.get("gold_sealed") or {}, r.get("silver") or {}
-        cells = [r["ts"], f"{r['loop']}/{r['round']}", r["label"], r["code"], r["vocab"], d.get("exact_rate"),
+        hd, hs = r.get("human_dev") or {}, r.get("human_sealed") or {}
+        cells = [r["ts"], r.get("data", "edu"), f"{r['loop']}/{r['round']}", r["label"], r["vocab"], d.get("exact_rate"),
                  d.get("right_or_shallower"), d.get("harm_rate"), (d.get("levels") or {}).get("1"), s.get("exact_rate"),
-                 sv.get("agreement"), r["shares"].get("placed_by_lattice"), r["shares"].get("to_agent")]
+                 hd.get("exact_rate"), hs.get("exact_rate"), sv.get("agreement"), r["shares"].get("placed_by_lattice"),
+                 r["shares"].get("to_agent")]
         out.append("| " + " | ".join(f(c) for c in cells) + " |")
     return "\n".join(out)
 

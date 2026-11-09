@@ -111,3 +111,52 @@ a tuning set.
 
 **Next:** try the two big edits one at a time (`for unisex`, then `-elixir`), and look for their side effects on dev
 first.
+
+## Rounds 0–3 on the hackathon's Drive data, with Pedia's labels as gold
+
+**The switch:** on 2026-11-09 the project chose Pedia's labels as gold
+(`Hackathon-Kavak-OpenAI-Primero/DATA/Listings`). From here:
+
+- **Listings:** the 15,000 raw fragrance listings in `RAW/fragrance/subset-{1,2,3}`.
+- **Gold:** Pedia's placement of 13,500 of them (`Labeled/fragrance/subset-{1,2,3}`, release
+  `fragrance-2026-10-21-r10`).
+- **Split:** brands are split by the same hash. Dev is 235 brands and 11,267 rows; sealed is 50 brands and 2,233 rows.
+- **Human check:** Harry's labels are scored next to Pedia's in every run (`human`). A round that copies Pedia's habits
+  can still pull away from the person's labels, and this column shows it.
+
+**Run it**
+
+```
+uv run python -m taxo.pipeline fragrance --data drive --loop A --round N --label "..."
+```
+
+**Gate it**
+
+```
+uv run python -m taxo.gate fragrance <before> <after> --round N --label "..."
+```
+
+Add `--dev` to see the rows that changed on dev, without reading sealed.
+
+| Round | Change | Dev exact | Dev harm | Sealed exact | Sealed harm | Human dev / sealed exact | To agent | Gate |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| 0 | baseline | 50.0% | 18.0% | 52.4%* | 11.4%* | 48.0% / 47.2%* | 30.1% | n/a |
+| 1 | `strip += hair, travel, mist, fine, with`; `concentration += eau de perfume` | 51.0% | 16.1% | 52.8% | 10.7% | 48.3% / 46.5% | 30.1% | **kept** (26 better, 11 worse) |
+| 2 | `elixir` and `intense` are names, not concentrations | 52.5% | 16.3% | 53.8% | 10.8% | 50.8% / 48.4% | 30.1% | **kept** (28 better, 4 worse) |
+| 3 | new brand rung `brand_site`: the shop is the brand's own store (`juliettehasagun_us` → Juliette Has A Gun) | **62.2%** | 17.8% | **65.1%** | 12.5% | 50.8% / 48.4% | **18.8%** | **kept** (313 better, 45 worse) |
+
+\* Round 0's sealed numbers come from the round 1 gate's "before" column, scored in the same read.
+
+**Round 3:**
+- Brand accuracy on sealed went from 78% to 93%.
+- Harm rose because rows that used to have no brand (counted as neither right nor harmful) are now placed, and some of
+  those placements are wrong.
+- About 900 catalog rows (Parfumo, Fragrantica) still have no brand.
+
+**Sealed reads:** 5 in total (2 on Edu's data, 3 on the Drive gates). Each round costs one read, so a fresh sealed set
+will be needed before long.
+
+**Next shapes on dev:**
+- Pedia names typed products with their form word ("Coral Coast Body Mist"), while our vocab strips forms.
+- Catalog rows have no brand.
+- Single listings fall under the lattice's floor.

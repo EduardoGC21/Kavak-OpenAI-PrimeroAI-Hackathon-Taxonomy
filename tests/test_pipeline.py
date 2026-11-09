@@ -160,3 +160,11 @@ def test_gate_needs_more_better_than_worse():
     assert not keep and why[-1].startswith("FAIL")          # round 1: more exact, but nearly as many worse
     assert decide({"before": b, "after": a, "touched": 30, "better": 25, "worse": 1}, 0.22, 0.22)[0]
     assert not decide({"before": b, "after": a, "touched": 3, "better": 3, "worse": 0}, 0.22, 0.22)[0]  # too few
+
+
+def test_brand_site_rung():
+    b = Brands({"juliette_has_a_gun": "Juliette Has A Gun", "sand_and_fog": "Sand + Fog", "dua": "Dua"})
+    assert b.find(parse("Another Oud"), shop="juliettehasagun_us") == ("juliette_has_a_gun", "brand_site")
+    assert b.find(parse("Vanilla Musk 50 ml"), shop="sandandfog_us") == ("sand_and_fog", "brand_site")
+    assert b.find(parse("Dua Tobacco Vanille"), shop="sandandfog_us") == ("dua", "title_lead")   # the title wins
+    assert b.find(parse("Another Oud"), shop="fragrancenet") == (None, "none")

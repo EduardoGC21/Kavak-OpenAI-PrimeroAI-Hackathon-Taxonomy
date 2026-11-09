@@ -72,7 +72,7 @@ Domain conventions:
 
 def make_placer(domain: str, conventions: str = "", *, include_proposals: bool = False) -> Agent[PlaceContext]:
     from taxo.memory import agentic_for
-    instructions = agentic_for(domain, include_proposals=include_proposals)
+    instructions = agentic_for(domain, include_proposals=include_proposals) if domain in {"toys", "clothing", "footwear"} else []
     conventions += "\n" + "\n".join(f"[{r.status.value}] {r.text}" for r in instructions)
     return Agent[PlaceContext](
         name=f"placer-{domain}",

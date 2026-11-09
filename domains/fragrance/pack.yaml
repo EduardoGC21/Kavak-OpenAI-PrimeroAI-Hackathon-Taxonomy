@@ -3,9 +3,6 @@ families: [consumer_packaged]       # family rules shared with food (count, meas
 levels: [brand, line, model, concentration, variant, size]
 data: fragrance/                     # under TAXO_DATA_DIR
 truth: labels/fresh150-harry.yaml, labels/exp01-harry-correct.yaml   # Harry's blind labels
-construction:
-  node_text_module: domains.fragrance.normalization
-  brand_suffixes: [perfumes, perfume, parfums, parfum, paris, fragrances, beauty]
 conventions: |
   - Size (ml / oz) is a trade item on the product, never its own node.
   - Same name + different concentration (EDT vs EDP vs parfum) = different products.

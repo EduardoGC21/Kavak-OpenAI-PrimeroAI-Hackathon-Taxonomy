@@ -26,17 +26,22 @@ from taxo import drive, evaluator, gold as goldmod, kpis, score
 from taxo.core.config import DOMAINS_DIR, ROOT, RUNS_DIR
 from taxo.core.io import read_jsonl
 from taxo.core.schemas import Listing, Node
+from taxo.core.domain import DOMAINS
+from taxo.core.rules import run_rules
 from taxo.lattice import vocab as vocabmod
 from taxo.lattice.count import NameRecord, count_brand
 from taxo.parse import _BRACKET, Brands, parse, strip_seq
-from taxo.core.domain import load as load_domain, DOMAINS
-from taxo.core.rules import run_rules
+from taxo.tools.pedia import fragrance
 
 EDU_DIR = Path(os.environ.get("TAXO_EDU_DIR", r"C:\Work\meta-pedia-data\edu-subsets-2026-11-09"))
 GOLD_DIR = Path(os.environ.get("TAXO_GOLD_DIR", r"C:\Work\Pedia-Harness\repo\tests\fixtures"))
 PEDIA_REPO = Path(os.environ.get("TAXO_PEDIA_REPO", r"C:\Work\Pedia-Harness\repo"))
 OWNER_REF, OWNER_PATH = "0cd4be60", "tests/fixtures/owner-structure.jsonl"
 FIXTURES = ["fresh150-harry.yaml", "exp01-harry-correct.yaml"]
+DOMINANT = 0.6          # a variant value on >= this share of a cluster's records is written on its node (for checks)
+AUDIENCE_WORDS = {"women": "for women", "womens": "for women", "for her": "for women", "pour femme": "for women",
+                  "men": "for men", "mens": "for men", "for him": "for men", "pour homme": "for men"}
+CONC_WORDS = {" ".join(vocabmod.tokens(spelled)): canon for spelled, canon in fragrance.CONC}
 
 
 @dataclass
@@ -124,9 +129,18 @@ def brand_names() -> dict[str, str]:
 
 def _node_text(name: str, variants: dict[str, Counter], n: int, domain: str = "fragrance") -> str:
     """The cluster name plus each variant value most of its listings carry, so the pair checks can compare them."""
-    import importlib
-    module = (load_domain(domain).pack.get("construction") or {}).get("node_text_module")
-    return importlib.import_module(module).node_text(name, variants, n) if module else name
+    if domain != "fragrance":
+        return name
+    words = [name]
+    for axis in ("concentration", "audience", "form", "pack"):
+        vs = Counter()
+        for v, k in (variants.get(axis) or {}).items():   # one spelling per value: "edp" and "eau de parfum" are EDP
+            vs[CONC_WORDS.get(v, v) if axis == "concentration" else AUDIENCE_WORDS.get(v, v)] += k
+        if vs:
+            v, k = vs.most_common(1)[0]
+            if k >= DOMINANT * n:
+                words.append(v)
+    return " ".join(words)
 
 
 def run(items: list[Item], brands: Brands, vocab, rules: list[evaluator.Rule], only: set[str] | None = None,
@@ -305,6 +319,11 @@ def error_shapes(judged, limit: int = 10) -> list[dict]:
 
 
 # ---------------------------------------------------------------- vocab experiments
+HAND_EDITS = [  # junk the Lattafa smoke run showed ("for", "single item"); spelled variants the vocab misses
+    ("variant", "audience", ["for unisex", "for women and men", "for men and women"]),
+    ("variant", "concentration", ["eau de perfume"]),
+    ("strip", None, ["single item", "non toxic", "bottle"]),
+]
 
 
 def _edit(doc: dict, kind: str, axis: str | None, words: list[str], drop: bool = False) -> dict:
@@ -351,9 +370,7 @@ def vocab_candidates(judged, vocab_doc: dict, vocab, spread: Counter) -> list[tu
             d["size_pattern"] = (r"^\d+([.,]\d+)?(ml|oz|floz|fl|g)$|^\d+[.,]\d+$|^\d{1,2}$"
                                  r"|^(ml|oz|fl|ounce|ounces|milliliter|milliliters)$")
             cands.append((f"size_pattern: a bare 3-digit number is a name ({w!r} missing from {k} answers)", d))
-    import importlib
-    module = load_domain("fragrance").pack["construction"]["node_text_module"]
-    for kind, axis, words in importlib.import_module(module).HAND_EDITS:
+    for kind, axis, words in HAND_EDITS:
         label = f"{kind}{'.' + axis if axis else ''} += {words} (hand)"
         cands.append((label, _edit(vocab_doc, kind, axis, words)))
     seen, uniq = set(), []
@@ -404,7 +421,7 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     rows, human_rows, names = load_gold(a.data)
-    brands = Brands(names, tuple(load_domain(a.domain).pack.get("construction", {}).get("brand_suffixes", [])))
+    brands = Brands(names)
     gold = goldmod.Gold(rows, out_dir / "sealed_reads.jsonl")
     human = goldmod.Gold(human_rows, out_dir / "sealed_reads.jsonl")
     items = load_items(a.data, rows if rows is not human_rows else [], human_rows)

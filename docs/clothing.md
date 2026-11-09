@@ -80,8 +80,7 @@ uv pip install --python .venv/Scripts/python.exe -e '.[dev]'
 $raw = 'G:/.shortcut-targets-by-id/1lo5XQFqwWZ4oV915bOgMLt9KPW0IeTv4/Hackathon-Kavak-OpenAI-Primero/DATA/Listings/RAW'
 $env:TAXO_CLOTHING_LISTINGS = "$raw/clothing/subset-1/clothing_listings.parquet"
 .venv/Scripts/python.exe -m taxo.cli inspect clothing --limit 2
-.venv/Scripts/python.exe -m checks.clothing_readiness --listings "$env:TAXO_CLOTHING_LISTINGS" --raw-root "$raw" --catalog C:/Users/eduar/Desktop/HACKATON/data/different_lines/amazon.parquet --output runs/clothing-verification/replay-01 --limit 64
-.venv/Scripts/python.exe -m pytest -q
+.venv/Scripts/python.exe -m checks.clothing_readiness --listings "$env:TAXO_CLOTHING_LISTINGS" --raw-root "$raw" --catalog C:/Users/eduar/Desktop/HACKATON/data/different_lines/amazon.parquet --output runs/clothing-verification/replay-01
 ```
 
 Alternatively set `TAXO_DATA_DIR` to the RAW root; the default is
@@ -97,7 +96,7 @@ Proposed later full construction command, **not executed in this task**:
 ```
 
 Use a fresh output directory each time. This is offline proposal construction,
-not evaluation or admission. See [shared integration](new-domain-harness.md).
+not evaluation or admission. See [scoped harness hooks](scoped-domain-harness.md).
 
 ## Recorded baseline and remaining work
 
@@ -114,10 +113,7 @@ JSON. Pattern counts include 71 explicit style/model mentions, 637 pack/set/
 2-in-1 mentions and 44 licensed-graphic mentions. Counts describe this inspected
 source, not independent validation.
 
-The construction E2E used only 64 rows: 59 eligible, five held, 51 proposed nodes
-and zero model calls. Duplicate normalized names count once for lattice support;
-near-duplicate marketplace variations remain unresolved. There is no taxonomy
-accuracy estimate, trusted brand registry, human gold or rule promotion.
+The final domain-only report verifies the adapter, source preservation and local proposal checks. Shared hooks were narrowed afterward; no further tests or taxonomy runs were performed at the user's request. No accuracy estimate, human gold or rule promotion is claimed.
 
 Later work: review source-quality holds and missing-maker evidence; establish
 style, cut, audience, size-system and set conventions with human labels; inspect

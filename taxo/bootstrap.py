@@ -17,15 +17,21 @@ from taxo import evaluator, memory
 from taxo.core.config import DOMAINS_DIR, ROOT, RUNS_DIR
 from taxo.core.domain import load
 from taxo.lattice.vocab import load as load_vocab
-from taxo.parse import Brands
+from taxo.lattice.vocab import tokens
 
 
 def _slug(value: str) -> str:
     return hashlib.sha256(value.strip().casefold().encode()).hexdigest()[:20]
 
 
-class ReportedBrands(Brands):
+class ReportedBrands:
     """Only the adapter's reported brand; no seller, title, character or compatibility inference."""
+    def __init__(self, names):
+        self.names = names
+
+    def runs(self, slug):
+        return [tokens(self.names[slug])]
+
     def find(self, p, brand_field=None, maker_field=None, shop=None):
         key = _slug(brand_field) if brand_field else None
         return (key, "source_reported_unverified") if key in self.names else (None, "missing_source_brand")
@@ -62,7 +68,7 @@ def _construct(name: str, limit: int | None = None, output: Path | None = None) 
         dirs.append(ROOT / "rules" / "global")
     route_rules = evaluator.load(*dirs)
     names = {_slug(l.brand): l.brand.strip() for l in listings if l.brand and l.brand.strip().casefold() not in {"generic", "unknown", "unbranded", "n/a"}}
-    brands = ReportedBrands(names, suffixes=())
+    brands = ReportedBrands(names)
     items, screened = [], []
     for listing in listings:
         screen = _scope(listing)

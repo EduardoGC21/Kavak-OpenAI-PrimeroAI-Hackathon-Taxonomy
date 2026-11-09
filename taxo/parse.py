@@ -73,10 +73,9 @@ def strip_seq(toks: tuple[str, ...], seqs: list[tuple[str, ...]]) -> tuple[str, 
 class Brands:
     """The domain's known brands: slug -> display name, and the token runs that name each one."""
 
-    def __init__(self, names: dict[str, str], suffixes: tuple[str, ...] | None = None):
-        if suffixes is None:  # Legacy baseline callers; new domains pass their own configuration explicitly.
-            from taxo.core.domain import load
-            suffixes = tuple(load("fragrance").pack.get("construction", {}).get("brand_suffixes", []))
+    SUFFIXES = ("perfumes", "perfume", "parfums", "parfum", "paris", "fragrances", "beauty")
+
+    def __init__(self, names: dict[str, str]):
         self.names = names
         self.alias: dict[tuple[str, ...], str] = {}
         for slug, name in names.items():
@@ -84,7 +83,7 @@ class Brands:
                 if not base:
                     continue
                 self.alias.setdefault(base, slug)
-                for s in suffixes:
+                for s in self.SUFFIXES:
                     self.alias.setdefault(base + (s,), slug)
         self._by_len = sorted(self.alias, key=len, reverse=True)
 

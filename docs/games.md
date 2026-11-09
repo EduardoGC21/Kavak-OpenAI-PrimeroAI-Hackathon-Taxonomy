@@ -152,6 +152,12 @@ domain-local agentic files or `rules/games` by itself. Do not promote anything
 merely because these engineering checks pass. Later work needs a proposed tree,
 human review/gold and the appropriate evaluation gate.
 
+On this branch, `taxo/roles/placer.py` still calls `rule_engine.apply_all`, while
+`taxo/core/rules.py` exposes `run_rules` instead. This shared integration gap is
+confirmed by source inspection, not repaired here. The runnable pipeline/gate
+is fragrance-specific and agentic files remain unwired. Clothing/shared owner
+owns those fixes; direct-import readiness does not prove a full games run.
+
 ## Configuration and repeatable checks
 
 Dependencies used locally: Python 3.13, PyArrow 26, Pydantic 2, PyYAML 6;
@@ -202,3 +208,45 @@ If a separate toys file appears, rerun discovery and profile its overlap and
 boundary evidence; do not substitute it automatically for mixed games. No
 sealed-gold reads, paid calls, full taxonomy run, publication or source writes
 are part of this readiness command.
+
+## Run artifacts and later distillation
+
+Readiness now creates a new, non-overwritten directory under ignored
+`runs/games/readiness/<UTC-run-id>/`. Pass `--artifacts-dir <new-directory>` to
+retain it elsewhere outside Git; paths elsewhere inside the checkout are
+rejected. The committed readiness report indexes full artifact paths, hashes,
+byte/record counts and limitations. These artifacts are local to the machine,
+not attached to the pull request; copy them explicitly if another machine needs
+the data-bearing evidence.
+
+- `run.json`: status, invocation, Git HEAD, executed implementation/config/rule
+  hashes from the report, source paths/hashes, schemas/counts, sampling scope,
+  and explicit model/validator/human execution status. Git HEAD records the
+  checkout at execution; implementation hashes identify executed working files.
+- `scope-decisions.jsonl`: every configured row's supplied ID/native ID, title,
+  source labels and file hash, candidate kinds when available, selected scope
+  decision/hold with reason/evidence and screen version. All rows are scanned;
+  there is no random sample or seed and no held-out evaluation claim.
+- `rule-firings.jsonl`: small synthetic input/candidate contrasts, facts,
+  shadow statuses and actual evaluator outputs, including a non-firing matching
+  identity contrast. These are behavior contracts, not source or human labels.
+- `failure.txt` and failed `run.json`: unexpected error traceback/status while
+  preserving artifacts already written. The logging check deliberately supplied
+  a missing file and verified failure recording and overwrite prevention; see
+  `domains/games/e2e/logging-check-report.json`. This injected setup failure is
+  not a domain result.
+
+Implemented logs do **not** contain placements, trees, model routing, tool/agent
+calls, validator judgements, human outcomes or fine-tuning examples: none were
+run. Review state is explicitly `not_run` / `not_reviewed`. Calls/tokens are
+zero; cost is unavailable because no model calls occurred.
+
+The later shared harness should link source/config/code/rule versions and sample
+IDs/seed to placement/tree outputs, candidate alternatives, chosen path or
+abstention with concise evidence, routes, structured tool/agent responses,
+failures, validator/human reviews, measured metrics/usage/cost, and before/after
+rule or prompt changes. Preserve counterexamples and regressions. Separate
+exploration from held-out evaluation and leave unknown outcomes empty. Capture
+reviewable explanations and structured outputs, never private hidden reasoning.
+Those shared hooks are pending with the integration owner; no training
+infrastructure or performance claim is introduced by this baseline.

@@ -1,4 +1,31 @@
 {
+  "artifact_index": {
+    "artifacts": [
+      {
+        "bytes": 6985,
+        "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-games\\runs\\games\\readiness\\20261109T205756080386Z\\rule-firings.jsonl",
+        "records": 4,
+        "sha256": "ccee955a3d85c5e8d30566ec25855cfc33fe7e8290af27dcb5397296b632edf4"
+      },
+      {
+        "bytes": 41788,
+        "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-games\\runs\\games\\readiness\\20261109T205756080386Z\\run.json",
+        "records": null,
+        "sha256": "abdaf09d6339777b1d4526e62758be1abfcb07b94823f08c137532a6881af77c"
+      },
+      {
+        "bytes": 7750555,
+        "path": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-games\\runs\\games\\readiness\\20261109T205756080386Z\\scope-decisions.jsonl",
+        "records": 8676,
+        "sha256": "e5a43ff8d643a34bf9ee3a429b9d031725d304d3473a155f58a83a2dea0e2fb2"
+      }
+    ],
+    "evaluation_role": "exploratory_engineering_not_held_out_or_gold",
+    "root": "C:\\Users\\eduar\\.t3\\worktrees\\repo-taxonomy\\feat-domain-games\\runs\\games\\readiness\\20261109T205756080386Z",
+    "sample_seed": null,
+    "sampling": "full configured finite inputs; no random sampling",
+    "status": "PASS"
+  },
   "catalog": {
     "path": "C:\\Users\\eduar\\Desktop\\HACKATON\\data\\different_lines\\amazon.parquet",
     "rows": 100278,
@@ -563,7 +590,8 @@
     "domains\\games\\e2e\\examples.yaml": "4e8163fe535dae0f1844a6b2a33f79ec4d2c6013a362893b22f0b18222e17180",
     "domains\\games\\memory\\rules\\agentic.yaml": "85adfc7a9b810e41314d2f3e2a4a87164d0c3452256a6df6c10fa46316747629",
     "domains\\games\\pack.yaml": "999f40ee3397a640e2d22c99ba5facf40f801f0c74b579a7274c655d0778df7e",
-    "domains\\games\\readiness.py": "6838e4bb14faa550b6bbd295e9a87504d4eb9dff4df2c97a16a1891844c0a8ea",
+    "domains\\games\\readiness.py": "4ca50e96a249a86a52a0ceff3dd2643f16355120d1c90921e0d763fee49b34d2",
+    "domains\\games\\runlog.py": "76290329d8ba2e971ff20d38a9375f7e2b599402c10dd763051379d9f461c851",
     "domains\\games\\scope.py": "35825fcfa9c4e08f3a31020e929aa2eb87edda4473f2fff9f5e0151c7d4ad272",
     "domains\\games\\validator.yaml": "64c8548e2ecf16830eec8418a9c96677577a28063e197a0ba2876868eee3582d",
     "domains\\games\\vocab.yaml": "0654d0410510532b4c59c81db9fb86fcd2f73953f46570c99977cf27689d6c44",
@@ -572,6 +600,11 @@
     "rules\\games\\30-missing-identity.yaml": "a72bcba35c6f6f88a23a85e9f3d6652c93350d9f87421efbb2dfb683f78df50f",
     "rules\\games\\40-scope-hold.yaml": "75329230998c061ce41295f626ce35701e99f58f848a4efa4a31e28795b3eebd"
   },
+  "limitations": [
+    "Source screening is exploratory, not held-out evaluation or human gold.",
+    "No placement/tree, model routes, agent/tool traces, validator or human reviews were run.",
+    "Shared registration, fact/agentic wiring and games-capable pipeline/gate remain pending."
+  ],
   "profiles": [
     {
       "accepted_feature_presence": {
@@ -902,5 +935,5 @@
     "limits_and_brand_noninference": true,
     "status": "PASS"
   },
-  "verified_at_utc": "2026-11-09T20:52:44.455366+00:00"
+  "verified_at_utc": "2026-11-09T20:58:09.478112+00:00"
 }

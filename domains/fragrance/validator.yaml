@@ -1,0 +1,24 @@
+# Validator setup v1 (fragrance). Checklist steps are the validator's rules: proposals until the validator scores
+# better on gold with them. The improver proposes new steps; code tries them on dev gold.
+version: 1
+model: gpt-6-luna
+web: true
+use_proposals: true        # v1 runs its proposed steps so they can be scored; later versions keep only admitted ones
+inputs: [title, brand_field, seller, concentration, volume_ml, gender]
+checklist:
+  - id: similar_brands
+    text: Look up brands with similar names (similar_brands). If the listing's brand could be one of them, web-search both and say which house makes it.
+    status: proposal
+    origin: Pedia brand/alias-lookup, brand/inspired-by-mask (dupes name the house they imitate)
+  - id: official_line
+    text: Web-search the brand's official site or a fragrance catalogue for the scent's name; place on the official name, not the seller's wording.
+    status: proposal
+    origin: Pedia registry (official lines) and SPEC agent_search route
+  - id: concentration_and_audience
+    text: Read the concentration (EDT, EDP, parfum, extrait) and audience (men, women) the listing states; reject a path with a different one.
+    status: proposal
+    origin: Pedia DIM_OFFICIAL_MISMATCH flag; checks concentration_conflict, audience_conflict
+  - id: set_or_form
+    text: If the listing is a gift set, body mist, lotion or oil, place it on that set or form child, not on the scent itself.
+    status: proposal
+    origin: Pedia SET_PIECES_UNNAMED; Harry v6 forms 38:1

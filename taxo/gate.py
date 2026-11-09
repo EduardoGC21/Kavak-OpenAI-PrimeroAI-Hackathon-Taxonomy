@@ -15,6 +15,7 @@ from pathlib import Path
 
 from taxo import gold as goldmod, kpis, score
 from taxo.core.config import ROOT, RUNS_DIR
+from taxo.core.domain import DOMAINS, load as load_domain
 from taxo.parse import Brands
 from taxo.pipeline import FIXTURES, GOLD_DIR, OWNER_PATH, OWNER_REF, PEDIA_REPO, brand_names
 
@@ -72,14 +73,20 @@ def decide(c: dict, agent_before: float, agent_after: float) -> tuple[bool, list
 
 def main() -> None:
     ap = argparse.ArgumentParser(prog="taxo.gate")
-    ap.add_argument("domain", choices=["fragrance"])
+    ap.add_argument("domain", choices=DOMAINS)
     ap.add_argument("before", type=Path)
     ap.add_argument("after", type=Path)
     ap.add_argument("--round", type=int, required=True)
     ap.add_argument("--label", required=True)
     a = ap.parse_args()
+    if a.domain != "fragrance":
+        ap.error(f"{a.domain} has no configured human gold/scorer; collect blind human labels and configure evaluation before gating; use taxo.pipeline --construct for bootstrap")
+    for directory in (a.before, a.after):
+        metrics = json.loads((directory / "metrics.json").read_text(encoding="utf-8"))
+        if metrics.get("mode") == "raw_only_proposals":
+            ap.error("raw-only construction artifacts cannot be scored by the fragrance gate")
     names = brand_names()
-    brands = Brands(names)
+    brands = Brands(names, tuple(load_domain(a.domain).pack.get("construction", {}).get("brand_suffixes", [])))
     rows = goldmod.dedupe(goldmod.read_fixtures([GOLD_DIR / f for f in FIXTURES], set(names))
                           + goldmod.read_owner_git(PEDIA_REPO, OWNER_REF, OWNER_PATH, set(names)))
     g = goldmod.Gold(rows, RUNS_DIR / a.domain / "sealed_reads.jsonl")

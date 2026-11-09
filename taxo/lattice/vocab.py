@@ -53,7 +53,8 @@ def load(path: Path) -> CountVocab:
                 if size.match(toks[i]):
                     var[i] = ("size", toks[i])
             i += 1
-        frag = tuple(var[i] is None and (len(t) <= nchars or t.isdigit()) and t not in bind for i, t in enumerate(toks))
+        frag = tuple(var[i] is None and (len(t) <= nchars or t.isdigit()) and t not in bind
+                     and not v.get("preserve_identity_tokens", False) for i, t in enumerate(toks))
         n = len(toks)
         return Tagged(toks=toks, var=tuple(var), bind=tuple(t in bind for t in toks), frag=frag,
                       desc=(False,) * n, attr=(False,) * n, glue=(False,) * max(n - 1, 0), veto=(False,) * n,

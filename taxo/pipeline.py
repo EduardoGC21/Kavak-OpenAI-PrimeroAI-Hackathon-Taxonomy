@@ -29,17 +29,14 @@ from taxo.core.schemas import Listing, Node
 from taxo.lattice import vocab as vocabmod
 from taxo.lattice.count import NameRecord, count_brand
 from taxo.parse import _BRACKET, Brands, parse, strip_seq
-from taxo.tools.pedia import fragrance
+from taxo.core.domain import load as load_domain, DOMAINS
+from taxo.core.rules import run_rules
 
 EDU_DIR = Path(os.environ.get("TAXO_EDU_DIR", r"C:\Work\meta-pedia-data\edu-subsets-2026-11-09"))
 GOLD_DIR = Path(os.environ.get("TAXO_GOLD_DIR", r"C:\Work\Pedia-Harness\repo\tests\fixtures"))
 PEDIA_REPO = Path(os.environ.get("TAXO_PEDIA_REPO", r"C:\Work\Pedia-Harness\repo"))
 OWNER_REF, OWNER_PATH = "0cd4be60", "tests/fixtures/owner-structure.jsonl"
 FIXTURES = ["fresh150-harry.yaml", "exp01-harry-correct.yaml"]
-DOMINANT = 0.6          # a variant value on >= this share of a cluster's records is written on its node (for checks)
-AUDIENCE_WORDS = {"women": "for women", "womens": "for women", "for her": "for women", "pour femme": "for women",
-                  "men": "for men", "mens": "for men", "for him": "for men", "pour homme": "for men"}
-CONC_WORDS = {" ".join(vocabmod.tokens(spelled)): canon for spelled, canon in fragrance.CONC}
 
 
 @dataclass
@@ -100,22 +97,16 @@ def brand_names() -> dict[str, str]:
     return {r["brand"]: r["label"] for r in read_jsonl(EDU_DIR / "fragrance" / "taxonomy.jsonl") if r["level"] == "brand"}
 
 
-def _node_text(name: str, variants: dict[str, Counter], n: int) -> str:
+def _node_text(name: str, variants: dict[str, Counter], n: int, domain: str = "fragrance") -> str:
     """The cluster name plus each variant value most of its listings carry, so the pair checks can compare them."""
-    words = [name]
-    for axis in ("concentration", "audience", "form", "pack"):
-        vs = Counter()
-        for v, k in (variants.get(axis) or {}).items():   # one spelling per value: "edp" and "eau de parfum" are EDP
-            vs[CONC_WORDS.get(v, v) if axis == "concentration" else AUDIENCE_WORDS.get(v, v)] += k
-        if vs:
-            v, k = vs.most_common(1)[0]
-            if k >= DOMINANT * n:
-                words.append(v)
-    return " ".join(words)
+    import importlib
+    module = (load_domain(domain).pack.get("construction") or {}).get("node_text_module")
+    return importlib.import_module(module).node_text(name, variants, n) if module else name
 
 
 def run(items: list[Item], brands: Brands, vocab, rules: list[evaluator.Rule], only: set[str] | None = None,
-        lattice: dict | None = None) -> dict:
+        lattice: dict | None = None, *, domain: str = "fragrance", full_title: bool = False,
+        candidate_rules: list | None = None, dedupe_support: bool = False) -> dict:
     """Place every item in place. `only`: count and place just these brands (experiments). `lattice`: count_brand options."""
     by_brand: dict[str, list[Item]] = defaultdict(list)
     for it in items:
@@ -124,13 +115,21 @@ def run(items: list[Item], brands: Brands, vocab, rules: list[evaluator.Rule], o
         it.brand, it.brand_how = brands.find(p, it.brand_field, it.maker_field)
         if it.brand:
             it.path, it.level, it.step = [brands.names[it.brand]], "brand", "brand"
-            it.key = " ".join(strip_seq(p.head, brands.runs(it.brand)))
+            head = vocabmod.tokens(it.title) if full_title else p.head
+            if full_title:
+                # Raw bootstrap preserves internal names, graphics and repeated brand-like words.
+                lead = next((s for s in sorted(brands.runs(it.brand), key=len, reverse=True) if head[:len(s)] == s), ())
+                it.key = " ".join(head[len(lead):])
+            else:
+                it.key = " ".join(strip_seq(head, brands.runs(it.brand)))
             if only is None or it.brand in only:
                 by_brand[it.brand].append(it)
     stats = Counter()
     for slug, its in by_brand.items():
         name = brands.names[slug]
         recs = [NameRecord(rid=it.id, key=it.key, family=it.source or "listing") for it in its if it.key]
+        if dedupe_support:
+            recs = list({r.key: r for r in reversed(recs)}.values())
         bc = count_brand(slug, recs, vocab, brand_words=[name, slug.replace("_", " ")], **(lattice or {}))
         stats["clusters"] += len(bc.clusters)
         stats["supported"] += sum(c.supported for c in bc.clusters.values())
@@ -154,10 +153,15 @@ def run(items: list[Item], brands: Brands, vocab, rules: list[evaluator.Rule], o
                 continue
             fam = [_title(root_of[ck])] if ck in root_of else []
             if ck not in tax:
-                tax[ck] = Node(id=f"{slug}/{ck}", domain="fragrance", name=_title(ck),
-                               path=[name] + fam + [_node_text(ck, c.variants, c.n)])
+                tax[ck] = Node(id=f"{slug}/{ck}", domain=domain, name=_title(ck),
+                               path=[name] + fam + [_node_text(ck, c.variants, c.n, domain)])
             facts = {"placement": {"step": "lattice", "level": "product", "cluster_n": c.n}, "brand": {"slug": slug}}
-            ctx = {"listing": Listing(id=it.id, domain="fragrance", title=it.title, brand=name), "node": tax[ck], "tax": tax}
+            ctx = {"listing": Listing(id=it.id, domain=domain, title=it.title, brand=name), "node": tax[ck], "tax": tax}
+            pair = run_rules(candidate_rules or [], ctx["listing"], tax[ck], tax)
+            it.shadow += [(f.check, f.detail) for f in pair.shadow]
+            if pair.vetoed or pair.abstain:
+                it.reason, it.rule = "candidate_rule_review", pair.decided[0].check
+                continue
             out = evaluator.evaluate(rules, "place", facts, ctx)
             it.shadow += [(r, d) for r, _, d in out.shadow]
             if out.then.get("veto"):
@@ -260,11 +264,6 @@ def error_shapes(judged, limit: int = 10) -> list[dict]:
 
 
 # ---------------------------------------------------------------- vocab experiments
-HAND_EDITS = [  # junk the Lattafa smoke run showed ("for", "single item"); spelled variants the vocab misses
-    ("variant", "audience", ["for unisex", "for women and men", "for men and women"]),
-    ("variant", "concentration", ["eau de perfume"]),
-    ("strip", None, ["single item", "non toxic", "bottle"]),
-]
 
 
 def _edit(doc: dict, kind: str, axis: str | None, words: list[str], drop: bool = False) -> dict:
@@ -311,7 +310,9 @@ def vocab_candidates(judged, vocab_doc: dict, vocab, spread: Counter) -> list[tu
             d["size_pattern"] = (r"^\d+([.,]\d+)?(ml|oz|floz|fl|g)$|^\d+[.,]\d+$|^\d{1,2}$"
                                  r"|^(ml|oz|fl|ounce|ounces|milliliter|milliliters)$")
             cands.append((f"size_pattern: a bare 3-digit number is a name ({w!r} missing from {k} answers)", d))
-    for kind, axis, words in HAND_EDITS:
+    import importlib
+    module = load_domain("fragrance").pack["construction"]["node_text_module"]
+    for kind, axis, words in importlib.import_module(module).HAND_EDITS:
         label = f"{kind}{'.' + axis if axis else ''} += {words} (hand)"
         cands.append((label, _edit(vocab_doc, kind, axis, words)))
     seen, uniq = set(), []
@@ -334,7 +335,10 @@ def try_vocab(label: str, doc: dict, items, brands, rules, rows, by_gold, only: 
 # ---------------------------------------------------------------- main
 def main() -> None:
     ap = argparse.ArgumentParser(prog="taxo.pipeline")
-    ap.add_argument("domain", choices=["fragrance"])
+    ap.add_argument("domain", choices=DOMAINS)
+    ap.add_argument("--construct", action="store_true", help="raw-only offline proposal construction; no gold or model calls")
+    ap.add_argument("--limit", type=int, help="bound adapter input rows for construction")
+    ap.add_argument("--output", type=Path, help="construction output directory")
     ap.add_argument("--sealed", action="store_true", help="read sealed gold once at the end (logged)")
     ap.add_argument("--agent-calls", type=int, default=0, help="with OPENAI_API_KEY set: at most this many (< 50)")
     ap.add_argument("--no-experiments", action="store_true")
@@ -342,12 +346,22 @@ def main() -> None:
     ap.add_argument("--round", type=int, default=0, help="the loop round (0 = baseline)")
     ap.add_argument("--label", default="baseline", help="what changed in this round")
     a = ap.parse_args()
+    if a.construct:
+        if a.sealed or a.agent_calls or a.loop != "A":
+            ap.error("--construct is offline and gold-free; omit --sealed/--agent-calls and use loop A")
+        from taxo.bootstrap import construct
+        print(json.dumps(construct(a.domain, a.limit, a.output), indent=2))
+        return
+    if a.domain != "fragrance":
+        ap.error(f"{a.domain} has no configured human gold/scorer; use --construct for raw-only proposals, then collect blind gold")
+    if a.limit is not None or a.output is not None:
+        ap.error("--limit/--output apply only to --construct")
     t0 = time.time()
     out_dir = RUNS_DIR / a.domain
     out_dir.mkdir(parents=True, exist_ok=True)
 
     names = brand_names()
-    brands = Brands(names)
+    brands = Brands(names, tuple(load_domain(a.domain).pack.get("construction", {}).get("brand_suffixes", [])))
     rows = goldmod.dedupe(goldmod.read_fixtures([GOLD_DIR / f for f in FIXTURES], set(names))
                           + goldmod.read_owner_git(PEDIA_REPO, OWNER_REF, OWNER_PATH, set(names)))
     gold = goldmod.Gold(rows, out_dir / "sealed_reads.jsonl")

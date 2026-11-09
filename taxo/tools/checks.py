@@ -196,7 +196,19 @@ CHECKS: dict[str, tuple[Callable, str]] = {  # name -> (function, default decisi
 
 
 def run(name: str, listing: Listing, node: Node, tax: Taxonomy, decision: str | None = None, **params) -> Finding | None:
-    fn, default = CHECKS[name]
+    if name in CHECKS:
+        fn, default = CHECKS[name]
+    else:
+        # Explicit pack hook; no cross-domain registration or mutable global registry.
+        import importlib
+        from taxo.core.domain import load
+        module = load(listing.domain).pack.get("checks_module")
+        if not module:
+            raise ValueError(f"unknown check {name!r} for {listing.domain}; configure checks_module in pack.yaml")
+        local = importlib.import_module(module).CHECKS
+        if name not in local:
+            raise ValueError(f"unknown check {name!r} in {module}.CHECKS")
+        fn, default = local[name]
     out = fn(listing, node, tax, **params)
     if not out:
         return None

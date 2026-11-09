@@ -1,0 +1,9 @@
+id: veto/count-conflict
+stage: place
+when:
+  - {fact: placement.step, eq: lattice}
+  - {check: count_agree}
+then: {veto: true, route: agent_title}
+status: active
+why: "The title states a pack count the node does not (or a different one): a multipack is not the single product."
+origin: taxo/tools/checks.py count_agree (Pedia quantity parser)

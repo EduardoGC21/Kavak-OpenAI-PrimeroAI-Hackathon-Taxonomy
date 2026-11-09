@@ -1,0 +1,8 @@
+id: settle/no-name
+stage: route
+when:
+  - {fact: brand.slug, present: true}
+  - {fact: placement.reason, eq: no_name}
+then: {settle: brand}
+status: active
+why: "Once brand and variant words are out, the title names nothing: the brand node is the deepest right answer."

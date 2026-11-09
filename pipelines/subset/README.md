@@ -81,6 +81,81 @@ calls or model inference run. Source locations are also documented in
 It can also run directly with `--sources <config.json> --out <new-directory>` in a
 compatible environment. No unit or end-to-end tests are included or run.
 
+## Two additional stratified Silver subsets per domain
+
+`stratified.py` contains the selection and export used for the two additional
+subsets, with source paths supplied through the existing local configuration.
+It reuses the brand/model balancing in `subset.py`. Each new subset contains:
+
+- 2,000 listings inside the pinned Pedia release with an exact Gold-label join.
+- 2,900 listings inside Pedia without a Gold-label join.
+- 100 listings outside Pedia and without a Gold-label join.
+
+The original seed-42 sample stays intact. Seeds 73 and 97 add two samples per
+domain: three Food subsets and three Fragrance subsets, each with 5,000 rows.
+All original Silver columns and values are retained. Selection spreads brands
+and sources while retaining shared models and sibling variants; Fragrance mixes
+the focus brands with other brands. Required beverage groups apply to the
+original `run.ps1` mode; this stratified mode uses its exact three quotas.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File pipelines/subset/run-stratified.ps1
+```
+
+The runner reads `data/subset-sources.json` and `data/gold-sources.json`, mounts
+inputs read-only, and uses the existing M4R image without network access. The
+default output is a new `data/subsets/stratified-n5000/` directory containing
+`silver-gold-pedia-n5000-seed73/` and `silver-gold-pedia-n5000-seed97/`. Each has
+`food/` and `fragrance/` directories containing:
+
+- `<domain>_listings.parquet`: the unchanged Silver rows.
+- `selection.parquet`: IDs, sampling stratum, and Pedia selection provenance.
+- `gold_labels.parquet`: reference annotations joined to the 2,000 Gold-covered
+  listings, keeping the deepest available level per listing, view and product.
+- `manifest.json`: release pins, input exclusions, quotas, diversity and hashes.
+
+The Gold sidecar has multiple rows per listing and keeps selected annotation
+fields; it is not a copy of the original Gold tables. The separate Gold mode
+below preserves every original Gold row, column and hierarchy level. These two
+outputs serve different scopes, and the Silver Parquet gains no label columns.
+
+By default, every existing `<domain>_listings.parquet` under `data/subsets/` is
+excluded by both signed Silver ID and native listing identity. The second seed
+also excludes the first seed's new rows. `-ExcludeRoot` accepts one or more
+directories; include every existing subset location when using an alternate
+root. `-Out`, `-Seeds`, `-Domain`, `-Sources`, `-GoldSources` and `-Image` are
+configurable. Existing output directories are refused. `-PlanOnly` reports
+availability without exporting; its seeds are evaluated independently against
+existing inputs and do not reserve IDs for each other.
+
+"Outside Pedia" means no placement for the native listing in the pinned graph,
+using exact observation IDs and the verified historical identity bridge.
+Placements recorded as `unplaced` still count as present, so they cannot enter
+the outside group. Membership is relative to that pinned release and bridge.
+
+### Delivered files and recorded checks
+
+The November 9 extraction used Silver snapshot 3562, Food Pedia `r41`, and
+Fragrance Pedia `r10`. Its local output directories are
+`data/subsets/silver-gold-pedia-n5000-seed73/` and
+`data/subsets/silver-gold-pedia-n5000-seed97/`.
+
+The shared copies are in **Drive / Hackathon-Kavak-OpenAI-Primero / DATA /
+Listings / Non-labeled yet**. Each domain directory contains its original
+`<domain>_listings.parquet`, plus `subset-2/` (seed 73) and `subset-3/` (seed 97).
+The sidecars accompany the two new subsets. Dataset files remain outside Git.
+
+The saved file inspection found 5,000 distinct non-null Silver IDs in each of
+the six files and zero pairwise intersections, totaling 15,000 distinct IDs per
+domain. It also checked the exact new-subset quotas, Gold-covered IDs, saved
+schemas, classification filters and copied-file checksums. A portable summary
+of those recorded results is in
+[`reports/silver-subsets-20261109.json`](reports/silver-subsets-20261109.json).
+The detailed reports remain at `data/subsets/uniqueness-report.json` and the
+Drive folder's `uniqueness-report.json`. These are direct saved-file checks from
+the extraction, not a unit or end-to-end test suite. Updating the PR does not
+rerun extraction or those checks.
+
 ## Original Gold rows in batches of 500
 
 ```powershell

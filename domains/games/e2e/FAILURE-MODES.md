@@ -21,6 +21,8 @@ not human-labelled taxonomy truth.
 - Proposal/shadow rules decide; missing candidate metadata appears compatible.
 - Direct import requires shared registration, a model/API call or another domain.
 - Reading source files mutates them; stale manifests go unnoticed.
+- Run logs overwrite previous evidence, put RAW-bearing traces in Git, omit
+  failures, or confuse synthetic exploration with held-out/human outcomes.
 
 Smoke: import the domain, instantiate Domain directly, read one real supported
 listing, load YAML and return an empty taxonomy. Then run the full offline

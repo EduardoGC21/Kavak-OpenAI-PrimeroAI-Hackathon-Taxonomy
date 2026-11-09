@@ -15,7 +15,7 @@ from taxo.core.domain import Domain
 from taxo.core.schemas import AgenticRule, Node, RuleSpec, Status
 from taxo.core.rules import run_rules
 from taxo.lattice.vocab import load as load_vocab, tokens
-from taxo.tools.toys import inspect_source, identifier_evidence, offering_evidence
+from taxo.tools.toys import inspect_source, identifier_evidence, offering_evidence, run_references, write_artifact_index
 
 
 def run(source: Path, output: Path, boundary_sources: list[Path] | None = None) -> dict:
@@ -71,7 +71,7 @@ def run(source: Path, output: Path, boundary_sources: list[Path] | None = None) 
         ("Yellow school bus with flashing lights", "Kids' Play Buses", "include"),
         ("Space battle figure 6 pack", "Kids' Play Fantastic Creature Figures", "include"),
     ]
-    rows = []
+    rows, traces = [], []
     for i, (title, rank, expected, *categories) in enumerate(examples):
         r = {"asin": f"SYN{i:07d}", "title": title, "brand": None,
              "merchant": "Shop Is Not Maker", "byline": "Visit the Franchise Store",
@@ -80,6 +80,10 @@ def run(source: Path, output: Path, boundary_sources: list[Path] | None = None) 
         decision = adapter.scope_decision(r)
         check(f"scope-{i}-{expected}", decision["decision"] == expected)
         check(f"reason-{i}", bool(decision["reason"]))
+        traces.append({"case_id": f"synthetic-scope-{i}", "evidence_kind": "synthetic_exploration_not_gold",
+                       "input": r, "candidate_alternatives": ["include_toys", "exclude", "hold"],
+                       "selected": decision, "synthetic_expected_decision": expected,
+                       "validator_outcome": None, "human_outcome": None, "rule_change": None})
         rows.append(r)
 
     with tempfile.TemporaryDirectory(prefix="taxo-toys-e2e-") as temp:
@@ -191,6 +195,20 @@ def run(source: Path, output: Path, boundary_sources: list[Path] | None = None) 
     random = sample.model_copy(update={"title": "Squeeze toy Color May Vary"})
     variant = Node(id="v", domain="toys", name="Red", level="variant", fields={"variant_axis": "color"})
     check("random-proposal-blocks-specific", bool(offering_evidence(random, variant, {})))
+    # These are recorded direct probes of proposal helpers, not source firings,
+    # placement traces, independent evaluation or validator/human decisions.
+    for case, listing, node, fn in [
+        ("missing-set-number", sample, candidate, identifier_evidence),
+        ("accessory-vs-complete", replacement, complete, offering_evidence),
+        ("complete-with-accessories-counterexample", supplied, complete, offering_evidence),
+        ("random-vs-specific-color", random, variant, offering_evidence),
+    ]:
+        finding = fn(listing, node, {})
+        traces.append({"case_id": case, "evidence_kind": "synthetic_exploration_not_gold",
+                       "input": {"title": listing.title}, "candidate_alternatives": [node.model_dump(), "abstain"],
+                       "check": fn.__name__, "rule_status": "proposal", "finding": finding,
+                       "selected_action": "abstain" if finding else "no_check_finding_not_acceptance",
+                       "validator_outcome": None, "human_outcome": None, "rule_change": None})
     report = inspect_source(source, max_rows=6000, output=output / "real-input")
     check("real-input-field-preservation", report["preservation_checked"] == report["decisions"].get("include", 0) > 0)
     boundaries = []
@@ -199,9 +217,11 @@ def run(source: Path, output: Path, boundary_sources: list[Path] | None = None) 
         check(f"boundary-{i}-no-toys-admitted", inspected["decisions"].get("include", 0) == 0)
         boundaries.append(inspected)
     result = {"status": "PASS", "kind": "offline behavioral E2E; synthetic expectations are not gold",
-              "checks_passed": len(checks), "checks": checks, "real_input": report, "boundary_inputs": boundaries}
+              "checks_passed": len(checks), "checks": checks, "real_input": report, "boundary_inputs": boundaries,
+              "synthetic_traces": traces, "references": run_references(source), "unexpected_failures": []}
     output.mkdir(parents=True, exist_ok=True)
     (output / "e2e.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
+    write_artifact_index(output, "PASS", result["references"])
     return result
 
 
@@ -217,5 +237,6 @@ if __name__ == "__main__":
         args.output.mkdir(parents=True, exist_ok=True)
         (args.output / "e2e-failure.json").write_text(
             json.dumps({"status": "FAIL", "error": str(exc), "type": type(exc).__name__}, indent=2), encoding="utf-8")
+        write_artifact_index(args.output, "FAIL", run_references(args.source))
         raise
     print(json.dumps({"status": result["status"], "checks_passed": result["checks_passed"]}))

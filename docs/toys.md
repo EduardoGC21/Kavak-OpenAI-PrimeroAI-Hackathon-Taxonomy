@@ -203,3 +203,61 @@ The integration owner still needs to:
    inherit their admission from another domain. Build source-backed candidates,
    obtain human gold, and use the actual learning/evaluation gates before rule
    promotion. No exact full-taxonomy command is authorized or ready yet.
+
+## Logging checkpoint and distillation handoff
+
+The domain-local commands now write version-1 `artifact-index.json` records.
+Each index has `schema_version`, `domain`, `status`, `references` and `artifacts`;
+each artifact records its absolute local path, byte count, modification time and
+SHA-256. The index does not hash itself. References retain code/config/rule
+content hashes, an allowlisted configuration snapshot, runtime versions and
+command arguments. Readiness retains source/sidecar/manifest hashes and schemas,
+all source IDs and scope reasons in `decisions.jsonl`, source-order sample IDs
+(seed null: no random sample), rule statuses and limitations. Source placement
+rule firings are explicitly null: proposals were not evaluated on source pairs.
+Scope-reason counts are screen firings, not placement-rule firings or accuracy.
+
+Use a fresh ignored output directory per invocation. Layout:
+
+```text
+runs/toys/checkpoint-smoke/{smoke,artifact-index}.json
+runs/toys/checkpoint-readiness/{readiness,artifact-index}.json
+runs/toys/checkpoint-readiness/decisions.jsonl
+runs/toys/checkpoint-e2e/{e2e,artifact-index}.json
+runs/toys/checkpoint-e2e/{real-input,boundary-0,boundary-1}/...
+```
+
+Command failures after source resolution save `failure.json` (or
+`e2e-failure.json`) plus an index and re-raise. Expected negative-path checks are
+named in the E2E result; a separate bounded-row failure run verifies failure
+recording. A source/output-directory conflict is rejected without writing beside
+the input. Reusing a directory can retain earlier artifacts: fresh run directories
+are required when comparing checkpoints. The committed
+[artifact location index](../domains/toys/evidence/artifacts.json) points to the
+recorded local runs and their hashes; full ledgers and traces stay outside Git.
+
+E2E also saves small **synthetic exploration** records: input evidence, candidate
+alternatives, selected scope decision or proposal-check abstention, concise
+finding, and null validator/human outcomes and rule changes. Counterexamples
+include a complete RC toy supplied with replacement parts and a partial set-number
+match. They test implementation behavior; they are neither held-out evaluation
+nor human gold. No source placement, validator call, human review, model tool
+trace, token usage or paid cost was produced. Nothing is inferred for those
+missing outcomes; no model fine-tuning was started.
+
+For the later full harness, the shared owner must connect a run ID and listing
+ID to source/config/code/rule versions, candidate alternatives and evidence,
+placements/tree outputs, routes, structured tool/agent outputs, errors,
+validator/review outcomes, metrics, measured token/call usage and cost, and
+before/after rule or prompt versions. Distillation should link these observed
+records and include regressions/counterexamples; preserve concise explanations,
+not private hidden reasoning. Keep exploratory examples separate from held-out
+evaluation, and never promote a rule from an explored sample's apparent fit.
+
+Shared blockers are verified by source inspection at this branch's scaffold:
+`taxo.pipeline` and `taxo.gate` only accept fragrance; shared memory does not
+consume these agentic files; `taxo/roles/placer.py` calls `rule_engine.apply_all`
+although `taxo/core/rules.py` defines `run_rules`. This PR's direct adapter/check
+commands work independently of those gaps. The clothing/shared-integration owner
+owns their fixes and the eventual shared run/ledger hooks. No shared integration
+files or other-domain commits have been added to this branch.

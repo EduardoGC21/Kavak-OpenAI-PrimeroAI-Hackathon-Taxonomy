@@ -24,6 +24,7 @@ from taxo.lattice.vocab import load as load_vocab, tokens
 from . import adapter
 from .checks import candidate_facts
 from .scope import VERSION, category_labels, decide_scope
+from .runlog import RunLog
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
@@ -139,7 +140,7 @@ def synthetic_e2e() -> dict:
             "keyed_join_and_fail_closed_errors": True, "limits_and_brand_noninference": True}
 
 
-def rules_e2e() -> dict:
+def rules_e2e(log: RunLog) -> dict:
     rules = evaluator.load(ROOT / "rules/games")
     assert len({r.id for r in rules}) == 4 and all(r.status == "shadow" for r in rules)
     agentic = [AgenticRule(**r) for r in yaml.safe_load((HERE / "memory/rules/agentic.yaml").read_text(encoding="utf-8"))]
@@ -177,11 +178,25 @@ def rules_e2e() -> dict:
         facts = candidate_facts(listing.model_copy(update={"fields": lf}), same.model_copy(update={"fields": nf}))
         result = evaluator.evaluate(rules, "place", facts)
         assert result.rule is None and any(x[0] == "games/identity-conflict" for x in result.shadow), axis
+    # Reviewable synthetic contrasts; these are not model or human judgements.
+    from dataclasses import asdict
+    for label, item, candidate, stage in [
+        ("same_identity", listing, same, "place"),
+        ("different_kind", listing, other, "place"),
+        ("missing_identity", listing, Node(id="blank", domain="games", name="Blank"), "place"),
+        ("scope_hold", held, same, "route"),
+    ]:
+        facts = candidate_facts(item, candidate)
+        log.append("rule-firings.jsonl", {"sample_id": label, "evidence_role": "synthetic_behavior_only",
+                   "input": item.model_dump(), "candidate_alternatives": [candidate.model_dump()],
+                   "facts": facts, "rule_status": {r.id: r.status for r in rules},
+                   "outcome": asdict(evaluator.evaluate(rules, stage, facts)),
+                   "validator_outcome": "not_run", "human_outcome": "not_reviewed", "resulting_change": None})
     return {"status": "PASS", "shadow_rules": len(rules), "proposal_agentic_rules": len(agentic),
             "active_decisions": 0, "validator_checklist": 0, "numeric_tokens_preserved": True}
 
 
-def profile(path: Path, catalog: Path | None) -> dict:
+def profile(path: Path, catalog: Path | None, log: RunLog) -> dict:
     records = list(adapter.read_records(path))
     files = [path]
     if records and records[0]["games_provenance"]["source_rows_file"]:
@@ -208,6 +223,15 @@ def profile(path: Path, catalog: Path | None) -> dict:
     accepted = []
     for row in records:
         scope = decide_scope(row)
+        raw = {**row, **row["games_source_row"]}
+        log.append("scope-decisions.jsonl", {
+            "input_file": str(path.resolve()), "input_sha256": before[str(path)],
+            "listing_id": adapter.listing_id(row), "native_id": raw.get("asin") or raw.get("source_listing_id"),
+            "title": raw.get("title") or raw.get("listing_name"), "source_labels": category_labels(raw),
+            "candidate_alternatives": list(scope.evidence) if scope.reason == "conflicting_game_kinds" else [scope.subtype] if scope.subtype else [],
+            "scope_decision": scope.as_dict(), "explanation": scope.reason,
+            "evidence_role": "exploratory_source_screen_not_gold", "validator_outcome": "not_run",
+            "human_outcome": "not_reviewed", "resulting_change": None})
         status[scope.status] += 1
         reasons[scope.reason] += 1
         labels.update(category_labels({**row, **row["games_source_row"]}))
@@ -307,13 +331,39 @@ def main():
     parser.add_argument("--delivery-report", type=Path)
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--smoke-only", action="store_true")
+    parser.add_argument("--artifacts-dir", type=Path, help="New directory outside Git for data-bearing run logs")
     args = parser.parse_args()
-    report = {"scope_version": VERSION, "smoke": smoke(args.listings)}
+    artifacts = args.artifacts_dir or ROOT / "runs/games/readiness" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    log = RunLog(artifacts, ROOT, vars(args))
+    report = {"scope_version": VERSION,
+              "limitations": ["Source screening is exploratory, not held-out evaluation or human gold.",
+                              "No placement/tree, model routes, agent/tool traces, validator or human reviews were run.",
+                              "Shared registration, fact/agentic wiring and games-capable pipeline/gate remain pending."]}
+    report["implementation_hashes"] = {str(p.relative_to(ROOT)): sha256(p) for p in sorted(
+        [*HERE.glob("*.py"), *HERE.glob("*.yaml"), *HERE.glob("memory/rules/*.yaml"),
+         *HERE.glob("e2e/*.yaml"), *(ROOT / "rules/games").glob("*.yaml")])}
+    try:
+        execute(args, report, log)
+    except Exception as error:
+        report["status"] = "FAIL"
+        report["artifact_index"] = log.finish(report, error)
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        raise
+    report["artifact_index"] = log.finish(report)
+    args.report.parent.mkdir(parents=True, exist_ok=True)
+    args.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(json.dumps({"status": "PASS", "report": str(args.report), "artifacts": str(log.root),
+                      "profiles": [{"rows": p["rows"], "scope": p["scope_counts"]} for p in report.get("profiles", [])]}))
+
+
+def execute(args, report: dict, log: RunLog):
+    report["smoke"] = smoke(args.listings)
     if not args.smoke_only:
         # Smoke above always precedes the substantive checks.
         report["synthetic_e2e"] = synthetic_e2e()
-        report["rules_e2e"] = rules_e2e()
-        report["profiles"] = [profile(p, args.catalog) for p in [args.listings, *args.also_listings]]
+        report["rules_e2e"] = rules_e2e(log)
+        report["profiles"] = [profile(p, args.catalog, log) for p in [args.listings, *args.also_listings]]
         if args.catalog:
             import pyarrow.parquet as pq
             report["catalog"] = {"path": str(args.catalog), "sha256": sha256(args.catalog),
@@ -330,15 +380,8 @@ def main():
             report["current_raw_inventory"] = current_raw_inventory(drive.parents[2])
         report["readiness"] = {"adapter": "ready", "placement": "bootstrap_required", "taxonomy_nodes": 0,
                                "gold_read": False, "model_calls": 0, "shared_registration": "integration_owner_required"}
-        report["implementation_hashes"] = {str(p.relative_to(ROOT)): sha256(p) for p in sorted(
-            [*HERE.glob("*.py"), *HERE.glob("*.yaml"), *HERE.glob("memory/rules/*.yaml"),
-             *HERE.glob("e2e/*.yaml"), *(ROOT / "rules/games").glob("*.yaml")])}
         report["verified_at_utc"] = datetime.now(timezone.utc).isoformat()
     report["status"] = "PASS"
-    args.report.parent.mkdir(parents=True, exist_ok=True)
-    args.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({"status": "PASS", "report": str(args.report),
-                      "profiles": [{"rows": p["rows"], "scope": p["scope_counts"]} for p in report.get("profiles", [])]}))
 
 
 if __name__ == "__main__":

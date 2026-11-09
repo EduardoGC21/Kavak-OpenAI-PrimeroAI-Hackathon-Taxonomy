@@ -73,14 +73,18 @@ record results, null counts, source/output hashes and the M4R/code revision.
 ## Delivered domains
 
 Drive `DATA/Listings/RAW` contains one unique `subset-1` for each added domain:
-clothing (5,000 rows), footwear (3,007) and games (5,161). All use the same
+clothing (5,000 rows), footwear (2,948) and games (4,338). All use the same
 97-column format. Clothing is garment-only under the conservative source
 evidence rules; 1,422 rows from the first loose sample were replaced. Footwear
 is separate, with no standalone shoe accessories admitted by the current rules.
-Games retains the Video Games plus Toys & Games department selection, including
-toys, consoles and accessories. It has **not** had the stricter content review
-used for garments/footwear. No Pedia membership or Gold labels are asserted for
+Games starts from Video Games plus Toys & Games departments, then applies the
+independent actual-play and source-quality screen. Party supplies, pet products,
+unrelated utility/grooming items and held ambiguity are excluded. The later
+audit also replaced 957 UI-contaminated clothing rows and omitted 59 footwear
+rows with contaminated descriptions. No Pedia membership or Gold labels are asserted for
 these three domains.
 
 Recorded saved-file and replay evidence is in
 [`reports/raw-domains-20261109.json`](reports/raw-domains-20261109.json).
+That earlier delivery is superseded by the
+[full content repair](../subset/reports/raw-content-audit-20261109.json).

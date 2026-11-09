@@ -5,6 +5,7 @@ belts, jewelry, bags, beauty products and garment accessories are not garments.
 Unclear evidence is held rather than admitted through the broad department.
 """
 import re
+from content_audit.quality import check as quality_check
 
 RANK = re.compile(r"#[\d,]+\s+in\s+(.+?)(?=\s*\(|\s*#|$)")
 GARMENT = re.compile(
@@ -53,6 +54,9 @@ def decide(row):
     ranks = labels(row)
     if "Clothing, Shoes & Jewelry" not in ranks:
         return None, "outside_department", []
+    quality = quality_check(row)
+    if quality:
+        return None, quality[0], []
     if NON_PRODUCT.search(row["title"]):
         return None, "non_garment_or_accessory_title", []
     leaves = [label for label in ranks if label != "Clothing, Shoes & Jewelry"]

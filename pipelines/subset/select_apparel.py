@@ -10,6 +10,7 @@ import json
 import pyarrow.parquet as pq
 
 from apparel_rules import decide, labels
+from content_audit.rules import decide as content_decide
 
 
 def checksum(path):
@@ -31,7 +32,8 @@ def main():
     pools = {d: [i for i, (domain, _, _) in enumerate(decisions) if domain == d] for d in ("clothing", "footwear")}
     pools["games"] = [i for i, row in enumerate(rows) if row["scrape_status"] == "ok"
                       and all((row[k] or "").strip() for k in ("asin", "title", "analysis_text"))
-                      and {"Video Games", "Toys & Games"}.intersection(labels(row))]
+                      and {"Video Games", "Toys & Games"}.intersection(labels(row))
+                      and content_decide('games',row)['decision']=='accept']
     previous_clothing = original / "clothing/clothing_listings.parquet"
     old_asins = set(pq.read_table(previous_clothing, columns=["asin"]).column("asin").to_pylist()) if previous_clothing.exists() else set()
     old_audit = [{"asin": row["asin"], "title": row["title"], "categories": row["categories"],
@@ -55,7 +57,7 @@ def main():
                     "seed": 42, "sampling": "Ascending SHA256('42:<asin>'); at most5000 garments/footwear; all eligible games; without replacement.",
                     "source": str(source), "source_sha256": checksum(source), "output_sha256": checksum(path),
                     "rules_sha256": checksum(Path(__file__).with_name("apparel_rules.py")),
-                    "policy": "Exact Video Games OR Toys & Games rank department; category screening only, no stricter content review."
+                    "policy": "Video Games OR Toys & Games rank department plus independent actual-human-play scope and source-quality screening."
                         if domain == "games" else "Conservative actual garments or footwear; explicit leaf rank support; unclear records held.",
                     "source_columns_preserved": True,
                     "rank_support_counts": dict(collections.Counter(label for i in selected for label in
@@ -64,12 +66,14 @@ def main():
         reports[domain] = manifest
     previous_games = original / "games/games_listings.parquet"
     if previous_games.exists():
-        assert pq.read_table(previous_games).equals(pq.read_table(args.out / "games/games_listings.parquet"), check_metadata=True)
+        old_game_asins = set(pq.read_table(previous_games,columns=['asin']).column('asin').to_pylist())
+        new_game_asins = set(pq.read_table(args.out / "games/games_listings.parquet",columns=['asin']).column('asin').to_pylist())
+        assert new_game_asins <= old_game_asins
     report = {"checks_passed": True, "domains": reports, "old_clothing_decisions": dict(collections.Counter(x["decision"][0] or x["decision"][1] for x in old_audit)),
               "old_clothing_retained_asins": sum(x["decision"][0] == "clothing" for x in old_audit),
               "old_clothing_rejected_or_held": [x for x in old_audit if x["decision"][0] != "clothing"],
               "previous_clothing_audit_available": previous_clothing.exists(),
-              "games_membership_matches_previous": True if previous_games.exists() else None,
+              "games_previous_rows_removed": len(old_game_asins-new_game_asins) if previous_games.exists() else None,
               "limitations": "Deterministic source-evidence screening, not human ground truth; ambiguous records omitted."}
     (args.out / "selection-audit.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"domains": {d: {k: r[k] for k in ("available_rows", "selected_rows")} for d,r in reports.items()},

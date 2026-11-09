@@ -1,0 +1,12 @@
+name: car_parts
+families: [vehicles, consumer_packaged]   # fitment/year from cars; count/set/bundle from food+fragrance
+levels: [part_type, brand, part, fitment]
+data: car_parts/                     # under TAXO_DATA_DIR; Mexico, scraped 2026-11-09
+taxonomy_source: "none given - the new problem: build it from listings + reused rules"
+truth: none yet - blind-label a random sample
+conventions: |
+  - A pair vs a set of 4 is a different product (count rule from food).
+  - OEM vs aftermarket vs reseller vs "fits <make>" are different things (brand != seller != licensor).
+  - A part-number match with a conflicting spec is not a match; identifiers never decide alone.
+  - Kits (pads + rotors) are sets, not either part.
+  - TODO while labelling: when does fitment (make/model/year range) define the node vs a listing attribute?

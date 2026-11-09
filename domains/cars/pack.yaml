@@ -1,0 +1,10 @@
+name: cars
+families: [vehicles]                 # family rules shared with car_parts (year ranges, make/model vocab)
+levels: [make, model, year, version]
+data: cars/                          # under TAXO_DATA_DIR; Mexico, scraped 2026-11-09
+taxonomy_source: catalogue (Autocosmos + brand sites), given - not proposed
+truth: none yet - blind-label a random sample
+conventions: |
+  - TODO while labelling: version names vary by seller ("Advance" vs "Advance CVT"); when is it the same trim?
+  - Model year, not sale year. A listing without a year stops at model (abstain on year).
+  - Body style changes (sedan vs hatchback) are different models when the catalogue says so.

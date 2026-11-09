@@ -1,21 +1,18 @@
-# Shared rule library. One entry = one RuleSpec (taxo/core/schemas.py).
-# scope: universal (every domain) | family (domains sharing an axis) | domain (one domain's convention).
-# A rule here is a CANDIDATE until memory/record.jsonl shows it paid off in a domain on human labels.
-# Source of the ideas: food/fragrance Pedia work (docs in the Primero-Hackathon repo, CROSS-DOMAIN-RULES.md #1, #2, #15).
+# Shared rule library (distilled, PROPOSALS). One entry = one RuleSpec (taxo/core/schemas.py): a check from
+# taxo/tools/checks.py (ported from pedia-harness), the decision it takes when it fires, its params.
+# Gated on gold before any domain uses it (SPEC.md §5.1).
 
 - id: count_agree
+  check: count_agree
+  decision: veto
   description: Pack count / set size in the listing must agree with the node's (12% tolerance). Pair vs set of 4 is a different product.
-  scope: universal
-  operator: agree
-  extractor: count
-  policy: reject
   params: {tolerance: 0.12}
+  scope: universal
   origin: "food: the one gate that held on human labels (FAR 186 -> 123 of 302, FRR 13 -> 20 of 299)"
 
 - id: count_omission
+  check: count_omission
+  decision: abstain
   description: The node states a count the listing never mentions. Unexamined, so abstain instead of a silent accept.
   scope: universal
-  operator: omission
-  extractor: count
-  policy: abstain
   origin: "food: omission -> abstain halved wrong auto-accepts"

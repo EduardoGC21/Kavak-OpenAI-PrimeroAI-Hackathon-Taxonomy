@@ -1,0 +1,63 @@
+# Agentic rules = lines in the Matcher's prompt. All PROPOSALS until tested in phase 2 (frozen validator, silver).
+# Source: Pedia fragrance work (Primero-Hackathon repo docs/pedia-log-mining/FRAGRANCE.md) + Edu's export rule ids.
+# Evidence is mostly LLM-judged (Luna+Sol votes "ours:Harry"); none was scored on human blind labels.
+
+- id: fr-most-specific
+  text: Place on the most specific node the title's wording supports, never more specific. A bare product name is not a flanker.
+  origin: matching work 09-27..10-05; Starwalker != Starwalker Extreme
+  evidence: examples
+  status: proposal
+
+- id: fr-shared-word-not-line
+  text: A shared word between two product names does not make them one line.
+  origin: construct lines; Clef line card
+  evidence: "about half of construct's lines were false; 'line is wrong' precision 130/164 (LLM)"
+  status: proposal
+
+- id: fr-counterparts
+  text: Men's and women's versions of a scent are counterparts, not variants or flankers of each other.
+  origin: Pedia rule construct/product/audience-pairs@1
+  evidence: "255 nodes built by it in Edu's export; Harry convention"
+  status: proposal
+
+- id: fr-forms-typed-child
+  text: A body mist, lotion, shower gel or deodorant of a scent is a typed child of that scent, not the scent itself. Oils, refills, dupes and sets are not forms.
+  origin: Harry v6 port; Pedia rule construct/dimension/typed-evidenced@1
+  evidence: "38:1 (LLM votes, ours:Harry)"
+  status: proposal
+
+- id: fr-concentration-separates
+  text: Same name with a different concentration (EDT, EDP, parfum, extrait) is a different product. Never merge across concentrations.
+  origin: catalogue joins; Pedia rule construct/dimension/concentration-variants-multi@1
+  evidence: "669 same-name/other-concentration FragranceNet rows kept apart; 0 new duplicates on 18,630 listings"
+  status: proposal
+
+- id: fr-gift-set
+  text: A gift set of one scent goes on that scent's set child. A set of different scents needs its contents named; if the pieces are not named, abstain.
+  origin: Harry v6; Pedia flags SET_PIECES_UNNAMED / SET_MEMBERS_UNNAMED; rule construct/supply/set-composite@2
+  evidence: "30:5 (LLM votes); losses were false set words"
+  status: proposal
+
+- id: fr-edition-convention
+  text: A line named after its base scent holds the base and its editions (intense, elixir, limited). Say which convention you used.
+  origin: Harry v6 port
+  evidence: "249 of 461 port moves were only this convention"
+  status: proposal
+
+- id: fr-brand-not-seller
+  text: The brand is the house printed on the bottle, not the seller, store label or 'inspired by' house. Licensed scents sit on the brand on the pack.
+  origin: Pedia rules brand/store-label@1, brand/inspired-by-mask@1, brand/licensor-only@1
+  evidence: "STORE_LABEL fired 4,768 times in Edu's export"
+  status: proposal
+
+- id: fr-no-product-named
+  text: If the title names only the brand (no scent), stop at the brand node; do not guess a scent.
+  origin: Pedia flags stop:no_product_named, stop:name_not_in_pedia
+  evidence: "564 + 589 listings stopped this way in Edu's export"
+  status: proposal
+
+- id: fr-never-mint-from-fragments
+  text: Place onto existing nodes first. Never propose a new node from a listing fragment ("Usa", "Top 5", a size).
+  origin: v6 port bug
+  evidence: "placement onto existing product 13:0 (LLM votes)"
+  status: proposal

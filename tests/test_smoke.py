@@ -15,13 +15,22 @@ from taxo.roles.proposer import make_proposer
 
 
 def test_count_rules_fire():
-    by_id = {r.id: r for r in memory.all_rules()}
-    node = Node(id="n", domain="t", name="Pads", path=["Acme", "Brake pads", "Set of 4"])
+    rs = [r.model_copy(update={"status": "admitted"}) for r in memory.all_rules()]
+    node = Node(id="n", domain="t", name="Set of 4", path=["Acme", "Brake pads", "Set of 4"])
+    tax = {"n": node}
     pair = Listing(id="a", domain="t", title="Acme brake pads pack of 2")
     silent = Listing(id="b", domain="t", title="Acme brake pads")
-    assert rules.apply(by_id["count_agree"], pair, node).decision == Decision.REJECT
-    assert rules.apply(by_id["count_omission"], silent, node).decision == Decision.ABSTAIN
-    assert rules.combine(rules.apply_all(list(by_id.values()), silent, node)) == Decision.ABSTAIN
+    assert rules.run_rules(rs, pair, node, tax).vetoed
+    assert rules.run_rules(rs, silent, node, tax).abstain
+    assert not rules.run_rules(memory.all_rules(), pair, node, tax).decided  # proposals never decide
+
+
+def test_ported_checks():
+    from taxo.tools import checks
+    assert checks.pack_count("Coca-Cola 12 x 330ml cans") == 12
+    assert checks.pack_count("Balatas delanteras juego de 4") == 4
+    edt = Node(id="e", domain="f", name="Yara EDT", path=["Lattafa", "Yara", "Yara EDT"])
+    assert checks.run("concentration_conflict", Listing(id="x", domain="f", title="Lattafa Yara EDP 100ml"), edt, {"e": edt})
 
 
 def test_universal_rules_reach_every_domain():
@@ -36,7 +45,7 @@ def test_metrics():
 
 def test_curator_needs_a_real_check(tmp_path, monkeypatch):
     monkeypatch.setattr(memory, "MEMORY_DIR", tmp_path)
-    r = RuleSpec(id="x", description="", scope="domain", operator="agree", extractor="count", policy="reject")
+    r = RuleSpec(id="x", check="count_agree", decision="veto")
     assert not curator.admit(r, "cars", caught=50, false_rejects=1, planted_fault_fires=True, known_good_quiet=False)
     assert curator.admit(r, "cars", caught=50, false_rejects=1, planted_fault_fires=True, known_good_quiet=True)
     assert not curator.promotable("x")

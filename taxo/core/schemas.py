@@ -61,14 +61,32 @@ class Scope(str, Enum):
     DOMAIN = "domain"
 
 
+class Status(str, Enum):
+    PROPOSAL = "proposal"  # written down, never run
+    SHADOW = "shadow"      # runs and logs what it would do; decides nothing (until the domain's validator is frozen)
+    ADMITTED = "admitted"  # passed the rule-set test on silver against the frozen validator
+    RETIRED = "retired"
+
+
 class RuleSpec(BaseModel):
-    """A rule = operator x extractor x policy. Operators transfer across domains; vocabularies do not."""
+    """A deterministic rule: one check from taxo/tools/checks.py, the decision it takes when it fires, its params.
+    Checks transfer across domains; vocabularies and owner conventions do not."""
     id: str
-    description: str
-    scope: Scope
-    operator: str  # e.g. agree, omission, structure, depth, identifier
-    extractor: str  # e.g. count, measure, year, axis, identifier
-    policy: Decision  # what the rule does when it fires
+    check: str  # name in taxo.tools.checks.CHECKS
+    decision: str  # veto | abstain | info
+    description: str = ""
     params: dict[str, Any] = Field(default_factory=dict)
+    scope: Scope = Scope.DOMAIN
+    status: Status = Status.PROPOSAL
     domains: list[str] = Field(default_factory=list)  # where it is enabled; empty = every domain at its scope
-    origin: str = ""  # where it was learned (domain, cluster, incident)
+    origin: str = ""  # where it was learned (domain, pedia rule id, incident)
+    evidence: str = ""
+
+
+class AgenticRule(BaseModel):
+    """An agentic rule: one instruction line in the Matcher's prompt."""
+    id: str
+    text: str
+    status: Status = Status.PROPOSAL
+    origin: str = ""
+    evidence: str = ""

@@ -1,5 +1,4 @@
 param(
-    [int]$BatchSize = 500,
     [ValidateSet('food','fragrance','both')][string]$Domain = 'both',
     [string]$Sources = '',
     [string]$Subsets = '',
@@ -10,7 +9,7 @@ $ErrorActionPreference = 'Stop'
 $workspace = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
 if (-not $Sources) { $Sources = Join-Path $workspace 'data\subset-sources.json' }
 if (-not $Subsets) { $Subsets = Join-Path $workspace 'data\subsets\pedia-4500-outside-500-v3-content-checked' }
-if (-not $Out) { $Out = Join-Path $workspace 'data\subsets\pedia-labeled-from-silver-v1' }
+if (-not $Out) { $Out = Join-Path $workspace 'data\subsets\pedia-gold-from-silver-v1' }
 if (Test-Path -LiteralPath $Out) { throw "Output exists: $Out. Choose a new -Out." }
 $sourceConfig = Get-Content -LiteralPath $Sources -Raw | ConvertFrom-Json
 $dockerSources = @{ pedia_root = '/pedia'; domains = @{} }
@@ -34,7 +33,7 @@ New-Item -ItemType Directory -Path $outParent -Force | Out-Null
 $mounts += @('--mount', "type=bind,source=$dockerConfig,target=/inputs/sources.json,readonly",
              '--mount', "type=bind,source=$outParent,target=/output")
 docker run --rm --network none -e PYTHONDONTWRITEBYTECODE=1 @mounts $Image python /subset/label_pedia.py `
-    --sources /inputs/sources.json --subsets /raw --out "/output/$(Split-Path -Leaf $Out)" --batch-size $BatchSize --domain $Domain
+    --sources /inputs/sources.json --subsets /raw --out "/output/$(Split-Path -Leaf $Out)" --domain $Domain
 if ($LASTEXITCODE -ne 0) { throw "Pedia labeling exited $LASTEXITCODE; partial output retained at $Out" }
-Write-Output "Pedia-labeled Silver subsets: $Out"
+Write-Output "Parallel Pedia Gold Parquets: $Out"
 Write-Output "Run configuration: $dockerConfig"

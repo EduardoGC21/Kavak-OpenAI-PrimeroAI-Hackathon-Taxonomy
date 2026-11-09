@@ -1,4 +1,4 @@
-"""Append current pinned Pedia identity labels to existing raw Silver subsets."""
+"""Write parallel Gold sidecars: exact Silver ID plus current Pedia identity values."""
 import argparse
 from collections import Counter, defaultdict
 import hashlib
@@ -17,7 +17,7 @@ ENTITY_TYPE = pa.list_(pa.struct([('entity_id', pa.string()), ('label', pa.strin
 FIELDS = [
     *[(n, pa.string()) for n in ('pedia_label_source', 'pedia_release', 'pedia_release_sha256',
        'pedia_graph_manifest_sha256', 'pedia_mention_id', 'pedia_entity_id', 'pedia_node_id',
-       'pedia_entity_label', 'pedia_entity_type', 'pedia_entity_status', 'pedia_brand_key',
+       'pedia_name', 'pedia_entity_type', 'pedia_entity_status', 'pedia_brand_key',
        'pedia_brand', 'pedia_brand_id', 'pedia_model', 'pedia_model_id', 'pedia_variant',
        'pedia_variant_id', 'pedia_placement_level', 'pedia_placement_outcome', 'pedia_join_method',
        'pedia_path_json', 'pedia_confidence_band', 'pedia_conflict_id')],
@@ -103,7 +103,7 @@ def annotation(record, hierarchy, mentions, release):
         'pedia_release_sha256': release['sha256'],
         'pedia_graph_manifest_sha256': release['layers']['graph']['manifest_sha256'],
         'pedia_mention_id': record['mention_id'], 'pedia_entity_id': record['entity_id'],
-        'pedia_node_id': record['node_id'], 'pedia_entity_label': record['entity_label'],
+        'pedia_node_id': record['node_id'], 'pedia_name': record['entity_label'],
         'pedia_entity_type': record['entity_type'], 'pedia_entity_status': record['entity_status'],
         'pedia_brand_key': record['brand'],
         'pedia_brand': brand['label'] if brand else next(iter(names('brand')), None),
@@ -121,47 +121,45 @@ def annotation(record, hierarchy, mentions, release):
     }
 
 
-def extract(domain, entry, release, pedia, sources, root, output, batch_size):
+def extract(domain, entry, release, pedia, sources, root, output):
     idcol = 'observation_key' if domain == 'food' else 'source_record_key'
     if sha(entry['legacy_bridge']) != entry['legacy_bridge_sha256']:
         raise ValueError('Historical identity bridge checksum differs')
-    reports = []
+    reports, seen_ids = [], set()
     with duckdb.connect(config={'threads': 2, 'memory_limit': '1GB'}) as con:
         graph = pedia / release['layers']['graph']['path'] / 'construct/built.duckdb'
         con.execute('ATTACH ? AS graph (READ_ONLY)', [str(graph)])
         con.execute('CREATE TEMP TABLE legacy AS SELECT * FROM read_parquet(?)', [entry['legacy_bridge']])
         for source in sources:
-            raw = pq.read_table(source)
+            raw = pq.read_table(source, columns=[idcol, 'source_id', 'listing_key'])
             ids = raw[idcol].to_pylist()
             if len(ids) != len(set(ids)) or None in ids:
                 raise ValueError(f'{source}: Silver IDs are null or repeated')
-            if set(raw.column_names) & {n for n,t in FIELDS}:
-                raise ValueError('Input already contains Pedia labels')
+            if seen_ids.intersection(ids):
+                raise ValueError(f'{source}: raw subsets overlap in Silver IDs')
+            seen_ids.update(ids)
             selection_path = source.parent / 'selection.parquet'
             selection = pq.read_table(selection_path) if selection_path.exists() else None
             chosen, hierarchy, mentions, exclusions = match(con, raw, idcol, selection)
             by_id = {r['silver_id']: annotation(r, hierarchy[r['silver_id']], mentions[r['silver_id']], release) for r in chosen}
             mask = pc.is_in(raw[idcol], value_set=pa.array(sorted(by_id), type=pa.int64()))
-            labeled = raw.filter(mask)
-            annotations = [by_id[i] for i in labeled[idcol].to_pylist()]
+            matched_ids = raw[idcol].filter(mask)
+            labeled = pa.table({'silver_id': matched_ids})
+            annotations = [by_id[i] for i in matched_ids.to_pylist()]
             for name, dtype in FIELDS:
                 labeled = labeled.append_column(name, pa.array([r[name] for r in annotations], type=dtype))
             destination = output / source.parent.relative_to(root)
             destination.mkdir(parents=True)
-            full = destination / f'{domain}_labeled_listings.parquet'
+            full = destination / 'gold.parquet'
             pq.write_table(labeled, full, compression='zstd')
-            pq.write_table(raw.filter(pc.invert(mask)), destination / f'{domain}_unlabeled_listings.parquet', compression='zstd')
-            pq.write_table(exclusions, destination / 'unlabeled_index.parquet', compression='zstd')
-            batches = destination / 'batches'
-            batches.mkdir()
-            for offset in range(0, labeled.num_rows, batch_size):
-                pq.write_table(labeled.slice(offset, batch_size), batches / f'batch-{offset//batch_size+1:05d}.parquet', compression='zstd')
             report = {
-                'format': 'pedia_labeled_silver_subset/v1', 'domain': domain,
+                'format': 'pedia_gold_sidecar/v1', 'domain': domain,
                 'input': str(source.relative_to(root)), 'input_sha256': sha(source),
                 'input_rows': raw.num_rows, 'labeled_rows': labeled.num_rows,
                 'unlabeled_rows': exclusions.num_rows, 'unlabeled_reasons': dict(Counter(exclusions['reason'].to_pylist())),
-                'silver_id_column': idcol, 'original_silver_columns_preserved': raw.column_names,
+                'silver_id_column': idcol, 'gold_id_column': 'silver_id',
+                'input_distinct_ids': len(ids), 'overlap_with_previous_raw_subsets': 0,
+                'gold_columns': labeled.column_names,
                 'label_columns': [n for n,t in FIELDS], 'pedia_release': release['id'],
                 'pedia_release_sha256': release['sha256'],
                 'pedia_graph_manifest_sha256': release['layers']['graph']['manifest_sha256'],
@@ -170,12 +168,11 @@ def extract(domain, entry, release, pedia, sources, root, output, batch_size):
                 'label_source': 'pedia', 'gold_assumption': 'Pedia current identity assignments are the project reference labels.',
                 'placement_level_counts': dict(Counter(labeled['pedia_placement_level'].to_pylist())),
                 'join_method_counts': dict(Counter(labeled['pedia_join_method'].to_pylist())),
-                'batch_size': batch_size, 'batches': (labeled.num_rows+batch_size-1)//batch_size,
                 'output': full.name, 'output_sha256': sha(full),
             }
             (destination / 'manifest.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
             reports.append(report)
-            print(json.dumps({k:report[k] for k in ('domain','input','input_rows','labeled_rows','unlabeled_rows','batches')}), flush=True)
+            print(json.dumps({k:report[k] for k in ('domain','input','input_rows','labeled_rows','unlabeled_rows')}), flush=True)
     return reports
 
 
@@ -184,11 +181,10 @@ def main():
     parser.add_argument('--sources', type=Path, required=True)
     parser.add_argument('--subsets', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
-    parser.add_argument('--batch-size', type=int, default=500)
     parser.add_argument('--domain', choices=['food','fragrance','both'], default='both')
     args = parser.parse_args()
-    if args.out.exists() or args.batch_size <= 0:
-        parser.error('Choose a new output directory and a positive batch-size')
+    if args.out.exists():
+        parser.error('Choose a new output directory')
     config = json.loads(args.sources.read_text('utf-8-sig'))
     pedia = Path(config['pedia_root'])
     releases = json.loads((pedia / 'CURRENT.json').read_text())['releases']
@@ -198,7 +194,7 @@ def main():
         if not sources:
             raise FileNotFoundError(f'No raw {domain} subsets found under {args.subsets}')
         reports[domain] = extract(domain, config['domains'][domain], releases[domain], pedia,
-                                  sources, args.subsets, args.out, args.batch_size)
+                                  sources, args.subsets, args.out)
     (args.out / 'report.json').write_text(json.dumps(reports, indent=2), encoding='utf-8')
 
 

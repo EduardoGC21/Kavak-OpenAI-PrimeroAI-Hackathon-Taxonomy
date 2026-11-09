@@ -1,50 +1,61 @@
 # Pedia-guided Silver listing subsets
 
-## Label the saved Silver subsets with Pedia
+## Parallel Pedia Gold for the existing RAW subsets
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File pipelines/subset/run-label-pedia.ps1
 ```
 
-This mode reads the existing raw Parquets from
-`data/subsets/pedia-4500-outside-500-v3-content-checked/` and appends the current
-pinned Pedia identity classification to matched listings. It retains every
-original Silver column and value, including the source observation ID, and writes
-one row per unambiguously matched listing. Pedia supplies the project's reference
-labels; every exported row records `pedia_label_source='pedia'` and its exact
-release and graph hashes.
+This mode creates one parallel `gold.parquet` per existing RAW subset. Gold
+contains only the exact signed `silver_id` and `pedia_*` identity values. It
+does not copy Silver listing fields, resample the data or create 500-row batches.
+
+The default inputs are the six current raw files under
+`data/subsets/pedia-4500-outside-500-v3-content-checked/`: three per domain,
+each with 5,000 distinct listings, 4,500 in Pedia and 500 outside. Gold contains
+only the matched 4,500 IDs from its corresponding RAW file.
 
 ```text
-data/subsets/pedia-labeled-from-silver-v1/<domain>/subset-<n>/
-  <domain>_labeled_listings.parquet
-  <domain>_unlabeled_listings.parquet
-  unlabeled_index.parquet
-  manifest.json
-  batches/batch-00001.parquet
+data/subsets/pedia-gold-from-silver-v1/
+  report.json
+  food/subset-1/gold.parquet
+  food/subset-2/gold.parquet
+  food/subset-3/gold.parquet
+  fragrance/subset-1/gold.parquet
+  fragrance/subset-2/gold.parquet
+  fragrance/subset-3/gold.parquet
 ```
 
-Added columns include canonical brand/model/variant names and IDs, sub-brand and
-family paths, the full typed placement path, assigned entity ID/type/status,
-canonical ancestors, placement level/outcome, rules, flags, available confidence,
-and the join method. Missing levels remain null or empty lists. `pedia_model` and
-`pedia_variant` refer to the unique nearest ancestor of that level (including the
-assigned node itself); nested structure is retained in the full path and entity
-hierarchy. Multiple equally near entities leave the scalar field empty.
+Every directory also has a manifest identifying its exact raw input and checksum.
+RAW subset 1 maps only to Gold subset 1, and likewise for 2 and 3 within each
+domain. Input IDs are checked for uniqueness and overlap while extracting.
+Gold `silver_id` joins to Food `observation_key` or Fragrance `source_record_key`.
+The 500 outside-Pedia rows remain only in RAW.
 
-Joins use the exact signed observation ID and source, with the checksum-verified
-historical identity bridge where needed. Conflicting entity assignments are
-retained in the unlabeled output with an explicit reason. Multiple mentions of
-the same entity reuse the original selection's representative when available,
-then prefer exact joins and stable mention-ID ties. All matching mention IDs are
-recorded. The raw subset is never overwritten or resampled.
+Pedia columns include canonical brand/model/variant names and IDs, `pedia_name`
+(the assigned entity's canonical name), family/sub-brand paths, the full typed
+path, canonical ancestor hierarchy, placement level/outcome, rules, flags,
+available confidence and exact release provenance. Missing levels stay empty.
+The unique nearest model/variant ancestor supplies the corresponding scalar ID;
+equally near competing ancestors leave it empty. Full hierarchy remains available.
 
-The delivered six inputs each had 5,000 raw rows. Each produced 4,500 labeled
-rows and 500 unchanged unlabeled rows, plus nine 500-row labeled batches.
-Manifests record source and output checksums, coverage, release pins, and added
-columns. `-Subsets`, `-Sources`, `-Out`, `-BatchSize`, `-Domain` and `-Image` are
-configurable. Inputs are mounted read-only, runs have no network access, and no
-smoke, end-to-end or unit tests run as part of extraction. Files stay local until
-a separate upload is requested.
+Joins use exact observation/source IDs and the checksum-verified retained
+historical identity bridge. Conflicting entity assignments are omitted with
+coverage reasons in the manifest. Multiple mentions of one entity reuse the
+original selection representative when possible, then prefer exact matches and
+stable mention-ID ties. Matching mention IDs are preserved.
+
+Pedia is the project's agreed Gold/reference source, recorded as
+`pedia_label_source='pedia'`; Food uses release `r41` and Fragrance `r10`.
+The saved direct ID inspection in the delivered output's `pairing-report.json`
+confirms that all six Gold files exactly match their own RAW in-Pedia ID sets.
+Source RAW checksums also match the active Drive `DATA/Listings/RAW` copies.
+
+Options: `-Subsets`, `-Sources`, `-Out`, `-Domain`, and `-Image`. Inputs mount
+read-only, execution has no network access, and existing outputs are refused.
+No smoke, end-to-end or unit test suites run as part of extraction. Gold files
+remain local until a separate upload is requested.
+
 
 ## Extract raw Silver subsets
 

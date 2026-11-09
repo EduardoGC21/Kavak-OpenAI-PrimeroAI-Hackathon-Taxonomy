@@ -22,7 +22,7 @@ from pathlib import Path
 
 import yaml
 
-from taxo import evaluator, gold as goldmod, kpis, score
+from taxo import drive, evaluator, gold as goldmod, kpis, score
 from taxo.core.config import DOMAINS_DIR, ROOT, RUNS_DIR
 from taxo.core.io import read_jsonl
 from taxo.core.schemas import Listing, Node
@@ -75,15 +75,40 @@ def _tkey(title: str) -> tuple[str, ...]:
     return vocabmod.tokens(_BRACKET.sub("", title or ""))
 
 
-def load_items(gold_rows: list[goldmod.GoldRow]) -> list[Item]:
+def _edu_raw() -> list[dict]:
+    return [{"id": r["id"], "title": r.get("title") or "", "source": r.get("source") or "",
+             "brand_name": r.get("brand_name"), "manufacturer_name": r.get("manufacturer_name"),
+             "pedia_brand": r.get("brand"), "pedia_path": [x for x in (r.get("pedia_path") or "").split(" › ") if x]}
+            for r in read_jsonl(EDU_DIR / "fragrance" / "listings.jsonl")]
+
+
+def load_gold(data: str) -> tuple[list[goldmod.GoldRow], list[goldmod.GoldRow], dict[str, str]]:
+    """(primary gold, human gold, brand names). drive: Pedia's labels are the primary gold (the project's choice) and
+    Harry's labels the human check; edu: Harry's labels are both."""
+    names = brand_names() if (EDU_DIR / "fragrance" / "taxonomy.jsonl").exists() else {}
+    prim: list[goldmod.GoldRow] = []
+    if data == "drive":
+        prim, dnames = drive.pedia_gold()
+        names = {**names, **dnames}
+    human = goldmod.dedupe(goldmod.read_fixtures([GOLD_DIR / f for f in FIXTURES], set(names))
+                           + goldmod.read_owner_git(PEDIA_REPO, OWNER_REF, OWNER_PATH, set(names)))
+    return prim or human, human, names
+
+
+def load_items(data: str, prim: list[goldmod.GoldRow], human: list[goldmod.GoldRow]) -> list[Item]:
+    by_listing = {g.extra["listing"]: g for g in prim if "listing" in g.extra}
+    raw = drive.listings() if data == "drive" else _edu_raw()
     items, by_title = [], {}
-    for r in read_jsonl(EDU_DIR / "fragrance" / "listings.jsonl"):
-        it = Item(id=r["id"], title=r.get("title") or "", source=r.get("source") or "",
-                  brand_field=r.get("brand_name"), maker_field=r.get("manufacturer_name"), pedia_brand=r.get("brand"),
-                  pedia_path=[s for s in (r.get("pedia_path") or "").split(" › ") if s])
+    for r in raw:
+        g = by_listing.get(r["id"])
+        it = Item(id=r["id"], title=r["title"], source=r["source"], brand_field=r["brand_name"],
+                  maker_field=r["manufacturer_name"], pedia_brand=g.brand if g else r.get("pedia_brand"),
+                  pedia_path=g.expected_path if g else r.get("pedia_path") or [])
+        if g:
+            it.gold.append(g.id)
         items.append(it)
         by_title.setdefault(_tkey(it.title), it)
-    for g in gold_rows:
+    for g in human:
         it = by_title.get(_tkey(g.title))
         if it is None:
             it = by_title[_tkey(g.title)] = Item(id=f"gold:{g.id}", title=g.title, source="gold",
@@ -113,7 +138,7 @@ def run(items: list[Item], brands: Brands, vocab, rules: list[evaluator.Rule], o
     for it in items:
         it.reset()
         p = parse(it.title, vocab)
-        it.brand, it.brand_how = brands.find(p, it.brand_field, it.maker_field)
+        it.brand, it.brand_how = brands.find(p, it.brand_field, it.maker_field, it.source)
         if it.brand:
             it.path, it.level, it.step = [brands.names[it.brand]], "brand", "brand"
             head = vocabmod.tokens(it.title) if full_title else p.head
@@ -262,7 +287,7 @@ def error_shapes(judged, limit: int = 10) -> list[dict]:
     for (cls, why), rows in sorted(groups.items(), key=lambda kv: -len(kv[1]))[:limit]:
         words = Counter(w for _, _, j in rows for w in (j.extra if cls in ("deeper", "wrong") else j.missing))
         out.append({"shape": f"{cls} / {why}", "n": len(rows), "words": words.most_common(6),
-                    "examples": [{"title": g.title[:110], "ours": " > ".join(it.path) or "-",
+                    "examples": [{"title": it.title[:110], "ours": " > ".join(it.path) or "-",
                                   "gold": " > ".join(g.expected_path)} for g, it, _ in rows[:3]]})
     return out
 
@@ -343,6 +368,8 @@ def main() -> None:
     ap.add_argument("--construct", action="store_true", help="raw-only offline proposal construction; no gold or model calls")
     ap.add_argument("--limit", type=int, help="bound adapter input rows for construction")
     ap.add_argument("--output", type=Path, help="construction output directory")
+    ap.add_argument("--data", choices=["drive", "edu"], default="drive",
+                    help="drive: the hackathon's 3x5,000 listings, Pedia labels as gold; edu: Edu's subset, human gold")
     ap.add_argument("--sealed", action="store_true", help="read sealed gold once at the end (logged)")
     ap.add_argument("--agent-calls", type=int, default=0, help="with OPENAI_API_KEY set: at most this many (< 50)")
     ap.add_argument("--no-experiments", action="store_true")
@@ -364,12 +391,11 @@ def main() -> None:
     out_dir = RUNS_DIR / a.domain
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    names = brand_names()
+    rows, human_rows, names = load_gold(a.data)
     brands = Brands(names, tuple(load_domain(a.domain).pack.get("construction", {}).get("brand_suffixes", [])))
-    rows = goldmod.dedupe(goldmod.read_fixtures([GOLD_DIR / f for f in FIXTURES], set(names))
-                          + goldmod.read_owner_git(PEDIA_REPO, OWNER_REF, OWNER_PATH, set(names)))
     gold = goldmod.Gold(rows, out_dir / "sealed_reads.jsonl")
-    items = load_items(rows)
+    human = goldmod.Gold(human_rows, out_dir / "sealed_reads.jsonl")
+    items = load_items(a.data, rows if rows is not human_rows else [], human_rows)
     by_gold = {gid: it for it in items for gid in it.gold}
     vocab_path = DOMAINS_DIR / a.domain / "vocab.yaml"
     vocab = vocabmod.load(vocab_path)
@@ -380,9 +406,9 @@ def main() -> None:
     subset = [it for it in items if not it.id.startswith("gold:")]
     dev = gold.dev
     dev_rep, dev_j = score_rows(dev, by_gold, brands)
-    in_sub = [g for g in dev if by_gold[g.id].pedia_path]
+    in_sub = [g for g in human.dev if by_gold[g.id].pedia_path]
     result = {
-        "secs": None, "listings": len(subset), "gold_rows": len(rows),
+        "secs": None, "data": a.data, "listings": len(subset), "gold_rows": len(rows), "human_rows": len(human_rows),
         "gold_by_origin": dict(Counter(g.origin for g in rows)),
         "dev_brands": sorted({g.brand for g in dev}), "sealed_brands": sorted(gold.sealed_brands()),
         "rules": [{"id": r.id, "stage": r.stage, "status": r.status} for r in rules],
@@ -390,7 +416,7 @@ def main() -> None:
         "shares_subset": shares(subset), "shares_gold": shares(list({id(it): it for it in by_gold.values()}.values())),
         "rules_fired": dict(Counter(it.rule for it in items if it.rule)),
         "shadow_would_change": dict(Counter(r for it in items for r, _ in it.shadow)),
-        "dev": dev_rep.summary(),
+        "dev": dev_rep.summary(), "human_dev": score_rows(human.dev, by_gold, brands)[0].summary(),
         "dev_in_subset": {"ours": score_rows(in_sub, by_gold, brands)[0].summary(),
                           "pedia": score_rows(in_sub, by_gold, brands, pedia=True)[0].summary()},
         "shapes": error_shapes(dev_j),
@@ -429,8 +455,10 @@ def main() -> None:
         result["vocab_experiments"] = sorted(exps, key=lambda e: (-e["d_exact"], e["d_harm"]))
         run(items, brands, vocab, rules)          # back to the baseline placement (agent answers are not redone)
     if a.sealed:
-        srows = gold.sealed("baseline: one read at the end")
-        s_sub = [g for g in srows if by_gold[g.id].pedia_path]
+        srows = gold.sealed(f"{a.label}: one read at the end ({a.data} gold + human)")
+        hs = [g for g in human_rows if goldmod.is_sealed(g.brand)]          # the same read: not logged twice
+        result["human_sealed"] = score_rows(hs, by_gold, brands)[0].summary()
+        s_sub = [g for g in hs if by_gold[g.id].pedia_path]
         result["sealed"] = score_rows(srows, by_gold, brands)[0].summary()
         result["sealed_in_subset"] = {"ours": score_rows(s_sub, by_gold, brands)[0].summary(),
                                       "pedia": score_rows(s_sub, by_gold, brands, pedia=True)[0].summary()}

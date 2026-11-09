@@ -1,5 +1,53 @@
 # Pedia-guided Silver listing subsets
 
+## Label the saved Silver subsets with Pedia
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File pipelines/subset/run-label-pedia.ps1
+```
+
+This mode reads the existing raw Parquets from
+`data/subsets/pedia-4500-outside-500-v3-content-checked/` and appends the current
+pinned Pedia identity classification to matched listings. It retains every
+original Silver column and value, including the source observation ID, and writes
+one row per unambiguously matched listing. Pedia supplies the project's reference
+labels; every exported row records `pedia_label_source='pedia'` and its exact
+release and graph hashes.
+
+```text
+data/subsets/pedia-labeled-from-silver-v1/<domain>/subset-<n>/
+  <domain>_labeled_listings.parquet
+  <domain>_unlabeled_listings.parquet
+  unlabeled_index.parquet
+  manifest.json
+  batches/batch-00001.parquet
+```
+
+Added columns include canonical brand/model/variant names and IDs, sub-brand and
+family paths, the full typed placement path, assigned entity ID/type/status,
+canonical ancestors, placement level/outcome, rules, flags, available confidence,
+and the join method. Missing levels remain null or empty lists. `pedia_model` and
+`pedia_variant` refer to the unique nearest ancestor of that level (including the
+assigned node itself); nested structure is retained in the full path and entity
+hierarchy. Multiple equally near entities leave the scalar field empty.
+
+Joins use the exact signed observation ID and source, with the checksum-verified
+historical identity bridge where needed. Conflicting entity assignments are
+retained in the unlabeled output with an explicit reason. Multiple mentions of
+the same entity reuse the original selection's representative when available,
+then prefer exact joins and stable mention-ID ties. All matching mention IDs are
+recorded. The raw subset is never overwritten or resampled.
+
+The delivered six inputs each had 5,000 raw rows. Each produced 4,500 labeled
+rows and 500 unchanged unlabeled rows, plus nine 500-row labeled batches.
+Manifests record source and output checksums, coverage, release pins, and added
+columns. `-Subsets`, `-Sources`, `-Out`, `-BatchSize`, `-Domain` and `-Image` are
+configurable. Inputs are mounted read-only, runs have no network access, and no
+smoke, end-to-end or unit tests run as part of extraction. Files stay local until
+a separate upload is requested.
+
+## Extract raw Silver subsets
+
 Extract **5,000 unique source listings per domain**, retaining every original
 Silver column and value. Pedia identity and hierarchy guide selection only;
 no Pedia columns, reduced graph, texts or embeddings are exported.

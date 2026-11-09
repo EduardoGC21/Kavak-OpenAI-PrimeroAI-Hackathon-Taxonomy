@@ -1,6 +1,41 @@
 # Pedia-guided Silver listing subsets
 
-## Current delivered RAW datasets
+## Historical Amazon garment and footwear subsets
+
+`select_apparel.py` uses `apparel_rules.py` to select **actual garments** and
+**footwear** as separate domains from the historical Amazon parsed catalog.
+The broad Clothing, Shoes & Jewelry department alone is not enough. Garments
+require primary `Apparel`, a specific garment rank and positive garment title;
+footwear requires primary `Shoes` and a specific footwear rank. Ambiguous
+records and accessory/beauty/prosthetic products are held. Garments include
+socks, underwear, swimwear and sleepwear, but not hats, jewelry, bags, shoe
+liners, detachable collars or adhesive bra tape. Rules retain ordinary fabric
+bras and socks rather than rejecting incidental accessory words.
+
+```powershell
+python pipelines/subset/select_apparel.py --root <HACKATON> --out <new-directory>
+```
+
+Selection preserves all original source columns and uses ascending
+SHA256(`42:<asin>`) to select at most 5,000 unique garments/footwear. Games are
+selected independently by exact Video Games or Toys & Games rank departments;
+all eligible rows are retained. This reproduces the current games membership
+but does not apply the stricter garment/footwear content review to games.
+`selection-audit.json` records rejected/held old clothing rows and source
+evidence when that historical subset is available. The source catalog alone is
+sufficient to create all three new domain subsets. Screening is not human ground truth.
+The separate [`amazon_cloth_toys`](../amazon_cloth_toys/README.md) pipeline converts
+these selections to the existing 97-column Food Silver format.
+
+The active Drive delivery adds `RAW/clothing/subset-1` (5,000 rows),
+`RAW/footwear/subset-1` (3,007 rows), and `RAW/games/subset-1` (5,161 rows).
+The garment-only rebuild replaced 1,422 rows from the original loose clothing
+sample; the previous subset is archived. These domains have no evaluated Pedia
+coverage or Gold labels. Their Food schema classification defaults do not
+establish food-family membership. Saved content/uniqueness evidence is in
+Drive `RAW/inspection/clothing-footwear-*.json` and the root dataset index.
+
+## Current delivered Food and Fragrance RAW datasets
 
 The active Drive layout is `DATA/Listings/RAW/{food,fragrance}/subset-{1,2,3}`.
 Each of the six subsets contains **5,000 distinct Silver listings: 4,500 in

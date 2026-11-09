@@ -1,5 +1,35 @@
 # Pedia-guided Silver listing subsets
 
+## Current delivered RAW datasets
+
+The active Drive layout is `DATA/Listings/RAW/{food,fragrance}/subset-{1,2,3}`.
+Each of the six subsets contains **5,000 distinct Silver listings: 4,500 in
+Pedia and 500 outside**, with 15,000 distinct IDs per domain and zero pairwise
+overlap. Gold annotation coverage is not used for selection. Original Silver
+columns and values remain unchanged.
+
+Food rows require `food_scope_status='confirmed'` and positive food evidence.
+Fragrance rows require `perfume_status='included'`, no `review_required=True`,
+and personal-fragrance evidence. The final content pass replaced 303 Food rows
+and 365 Fragrance rows, including non-domain products and insufficient evidence.
+These automated checks do not establish human ground truth.
+
+The final rebuild, content rules, replacement, publication and inspection code
+is preserved in [`delivery/`](delivery/README.md), with hashes mapping all task
+scripts to their originals. The scripts retain their original local runtime
+paths and prerequisites; they are not generalized replacements for the parent
+PowerShell runners. See that README before replaying any delivery step.
+
+Current recorded evidence:
+
+- [`reports/raw-subsets-20261109.json`](reports/raw-subsets-20261109.json): final
+  file hashes, counts, filters, replacements, diversity and Pedia readback.
+- [`reports/raw-gold-pairing-20261109.json`](reports/raw-gold-pairing-20261109.json):
+  exact ID equality between each RAW subset's in-Pedia rows and its Gold file.
+
+The 2,000/2,900/100 stratified mode and its older report below describe a
+superseded delivery. They remain available as a separate extraction mode.
+
 ## Parallel Pedia Gold for the existing RAW subsets
 
 ```powershell
@@ -53,11 +83,13 @@ Source RAW checksums also match the active Drive `DATA/Listings/RAW` copies.
 
 Options: `-Subsets`, `-Sources`, `-Out`, `-Domain`, and `-Image`. Inputs mount
 read-only, execution has no network access, and existing outputs are refused.
-No smoke, end-to-end or unit test suites run as part of extraction. Gold files
-remain local until a separate upload is requested.
+No smoke, end-to-end or unit test suites run as part of extraction. The six
+delivered Gold files were subsequently copied, on request, to
+`DATA/Listings/Labeled/{food,fragrance}/subset-{1,2,3}/gold.parquet`, with
+checksums verified. Rerunning extraction alone does not publish files to Drive.
 
 
-## Extract raw Silver subsets
+## Original all-in-Pedia Silver sampling mode
 
 Extract **5,000 unique source listings per domain**, retaining every original
 Silver column and value. Pedia identity and hierarchy guide selection only;
@@ -140,7 +172,11 @@ calls or model inference run. Source locations are also documented in
 It can also run directly with `--sources <config.json> --out <new-directory>` in a
 compatible environment. No unit or end-to-end tests are included or run.
 
-## Two additional stratified Silver subsets per domain
+## Legacy Gold-stratified Silver sampling mode
+
+This is the earlier 2,000/2,900/100 mode. Its outputs and delivery checks below
+were superseded by the current three 4,500/500 RAW subsets per domain described
+at the top of this document. It does not reproduce the content-cleaned RAW files.
 
 `stratified.py` contains the selection and export used for the two additional
 subsets, with source paths supplied through the existing local configuration.
@@ -192,7 +228,7 @@ using exact observation IDs and the verified historical identity bridge.
 Placements recorded as `unplaced` still count as present, so they cannot enter
 the outside group. Membership is relative to that pinned release and bridge.
 
-### Delivered files and recorded checks
+### Superseded delivery and recorded checks
 
 The November 9 extraction used Silver snapshot 3562, Food Pedia `r41`, and
 Fragrance Pedia `r10`. Its local output directories are

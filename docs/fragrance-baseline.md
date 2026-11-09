@@ -81,3 +81,33 @@ The vocab is not changed yet; these edits are candidates for round 1 and must pa
 
 **Biggest fix outside vocab:** a brand registry with sub-brands (Maison Alhambra and Niche Emarati under Lattafa, La
 Fede under Khadlaj). This accounts for 82% of the harmful dev answers.
+
+## Round 1 (Loop A): the combined vocab edit, gated on sealed. **Dropped**
+
+**The edit:** `concentration -= elixir, intense`; `audience += for unisex, for women and men, for men and women`;
+`strip += edition, natural`.
+
+The gate (`uv run python -m taxo.gate fragrance runs/fragrance/r0 runs/fragrance --round 1 --label ...`) scores round
+0 and round 1 in **one** logged sealed read, the second sealed read in total.
+
+| | Round 0 | Round 1 |
+|---|---:|---:|
+| Dev exact | 46.6% | 51.7% |
+| Dev harm | 18.1% | 17.4% |
+| Sealed exact | 56.7% (80) | 59.6% (84) |
+| Sealed wrong | 8 | 11 |
+| Sealed harm | 5.7% | 7.8% |
+| To agent | 22.4% | 22.4% |
+
+| Gate check | Result |
+|---|---|
+| Exact does not fall | pass |
+| Exact rises or the agent share falls | pass |
+| Touches at least 10 sealed rows | pass (11) |
+| Wilson lower bound of better / changed is at least 0.5 | **fail**: 4 better, 3 worse, bound 0.25 |
+
+The vocab was reverted to round 0. Sealed rows were not inspected to find which three got worse: that would make sealed
+a tuning set.
+
+**Next:** try the two big edits one at a time (`for unisex`, then `-elixir`), and look for their side effects on dev
+first.

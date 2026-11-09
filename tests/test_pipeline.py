@@ -149,3 +149,14 @@ def test_kpi_row_has_gold_silver_and_round():
     r = kpis.row("fragrance", result, "A", 3, "test", DOMAINS_DIR / "fragrance" / "vocab.yaml", RULES)
     assert r["round"] == 3 and r["gold_dev"]["exact_rate"] == 0.5 and r["silver"] is None
     assert r["gold_sealed"] is None and "| A/3 |" in kpis.table([r])
+
+
+# ---------------------------------------------------------------- gate
+def test_gate_needs_more_better_than_worse():
+    from taxo.gate import decide, wilson_lower
+    assert wilson_lower(0, 0) == 0.0 and 0.25 < wilson_lower(4, 7) < 0.26
+    b, a = {"exact": 80}, {"exact": 84}
+    keep, why = decide({"before": b, "after": a, "touched": 11, "better": 4, "worse": 3}, 0.22, 0.22)
+    assert not keep and why[-1].startswith("FAIL")          # round 1: more exact, but nearly as many worse
+    assert decide({"before": b, "after": a, "touched": 30, "better": 25, "worse": 1}, 0.22, 0.22)[0]
+    assert not decide({"before": b, "after": a, "touched": 3, "better": 3, "worse": 0}, 0.22, 0.22)[0]  # too few

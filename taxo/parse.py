@@ -16,6 +16,11 @@ from taxo.lattice.vocab import tokens
 _CUT = re.compile(r"\s[-–—|]\s|[,(\[{|:;]|\s-\s?")
 _BRACKET = re.compile(r"\s*\[[^\]]*\]\s*$")
 _BY = re.compile(r"\bby\s+", re.I)
+_SHOP_SUFFIX = re.compile(r"(_fragrance)?_(us|usa|ca|uk|mx|eu)$")
+
+
+def _compact(s: str) -> str:
+    return "".join(tokens(s))
 
 
 @dataclass
@@ -100,11 +105,25 @@ class Brands:
         hits = {self.alias[a] for a in self._by_len if any(toks[i:i + len(a)] == a for i in range(len(toks)))}
         return hits.pop() if len(hits) == 1 else None
 
-    def find(self, p: Parsed, brand_field: str | None = None, maker_field: str | None = None) -> tuple[str | None, str]:
+    def site(self, shop: str | None) -> str | None:
+        """The brand whose own store the shop is: "juliettehasagun_us" -> juliette_has_a_gun."""
+        if not shop:
+            return None
+        if not hasattr(self, "_compact"):
+            self._compact = {}
+            for slug, name in self.names.items():
+                for c in {_compact(slug), _compact(name)}:
+                    if len(c) >= 3:
+                        self._compact.setdefault(c, slug)
+        return self._compact.get(_compact(_SHOP_SUFFIX.sub("", shop.lower())))
+
+    def find(self, p: Parsed, brand_field: str | None = None, maker_field: str | None = None,
+             shop: str | None = None) -> tuple[str | None, str]:
         """The brand ladder (Pedia ladder.py, trimmed): the first rung that names exactly one known brand wins."""
         rungs = (("brand_field", lambda: self.exact(brand_field) or self.lead(tokens(brand_field))),
                  ("title_by", lambda: self.lead(p.by)),
                  ("title_lead", lambda: self.lead(p.toks)),
+                 ("brand_site", lambda: self.site(shop)),
                  ("maker_field", lambda: self.exact(maker_field) or self.lead(tokens(maker_field))),
                  ("title_any", lambda: self.anywhere(p.toks)))
         for how, rung in rungs:

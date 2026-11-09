@@ -26,7 +26,7 @@ def _slug(value: str) -> str:
 
 class ReportedBrands(Brands):
     """Only the adapter's reported brand; no seller, title, character or compatibility inference."""
-    def find(self, p, brand_field=None, maker_field=None):
+    def find(self, p, brand_field=None, maker_field=None, shop=None):
         key = _slug(brand_field) if brand_field else None
         return (key, "source_reported_unverified") if key in self.names else (None, "missing_source_brand")
 

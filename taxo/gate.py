@@ -17,7 +17,7 @@ from taxo import gold as goldmod, kpis, score
 from taxo.core.config import ROOT, RUNS_DIR
 from taxo.core.domain import DOMAINS, load as load_domain
 from taxo.parse import Brands
-from taxo.pipeline import FIXTURES, GOLD_DIR, OWNER_PATH, OWNER_REF, PEDIA_REPO, brand_names
+from taxo.pipeline import load_gold
 
 MIN_TOUCHED = 10
 BAR = 0.5
@@ -41,7 +41,7 @@ def _placed(d: Path) -> dict[str, dict]:
 
 
 def compare(rows, before: dict, after: dict, brands: Brands) -> dict:
-    rep_b, rep_a, better, worse, touched = score.Report(), score.Report(), 0, 0, 0
+    rep_b, rep_a, better, worse, touched, changes = score.Report(), score.Report(), 0, 0, 0, []
     for g in rows:
         bt = {t for r in brands.runs(g.brand) for t in r}
         jb, ja = (score.judge(x[g.id]["brand"], x[g.id]["path"], g.brand, g.expected_path, bt, g.compare, g.expect)
@@ -52,10 +52,14 @@ def compare(rows, before: dict, after: dict, brands: Brands) -> dict:
         if g.expect == "accept" and jb.cls != ja.cls:
             better += RANK[ja.cls] > RANK[jb.cls]
             worse += RANK[ja.cls] < RANK[jb.cls]
+            changes.append({"dir": "better" if RANK[ja.cls] > RANK[jb.cls] else "worse", "title": g.title[:100],
+                            "before": f"{jb.cls}: {' > '.join(before[g.id]['path'])}",
+                            "after": f"{ja.cls}: {' > '.join(after[g.id]['path'])}", "gold": " > ".join(g.expected_path)})
         if g.expect == "reject" and jb.reject_ok != ja.reject_ok:
             better += bool(ja.reject_ok)
             worse += not ja.reject_ok
-    return {"before": rep_b.summary(), "after": rep_a.summary(), "touched": touched, "better": better, "worse": worse}
+    return {"before": rep_b.summary(), "after": rep_a.summary(), "touched": touched, "better": better, "worse": worse,
+            "changes": changes}
 
 
 def decide(c: dict, agent_before: float, agent_after: float) -> tuple[bool, list[str]]:
@@ -78,6 +82,8 @@ def main() -> None:
     ap.add_argument("after", type=Path)
     ap.add_argument("--round", type=int, required=True)
     ap.add_argument("--label", required=True)
+    ap.add_argument("--data", choices=["drive", "edu"], default="drive")
+    ap.add_argument("--dev", action="store_true", help="diff on dev gold only: no sealed read, no KPI row, no decision")
     a = ap.parse_args()
     if a.domain != "fragrance":
         ap.error(f"{a.domain} has no configured human gold/scorer; collect blind human labels and configure evaluation before gating; use taxo.pipeline --construct for bootstrap")
@@ -85,18 +91,29 @@ def main() -> None:
         metrics = json.loads((directory / "metrics.json").read_text(encoding="utf-8"))
         if metrics.get("mode") == "raw_only_proposals":
             ap.error("raw-only construction artifacts cannot be scored by the fragrance gate")
-    names = brand_names()
+    rows, human, names = load_gold(a.data)
     brands = Brands(names, tuple(load_domain(a.domain).pack.get("construction", {}).get("brand_suffixes", [])))
-    rows = goldmod.dedupe(goldmod.read_fixtures([GOLD_DIR / f for f in FIXTURES], set(names))
-                          + goldmod.read_owner_git(PEDIA_REPO, OWNER_REF, OWNER_PATH, set(names)))
     g = goldmod.Gold(rows, RUNS_DIR / a.domain / "sealed_reads.jsonl")
-    sealed = g.sealed(f"gate: loop A round {a.round}: {a.label}")
-    c = compare(sealed, _placed(a.before), _placed(a.after), brands)
+    if a.dev:
+        c = compare(g.dev, _placed(a.before), _placed(a.after), brands)
+        print(json.dumps({k: c[k] for k in ("touched", "better", "worse", "changes")}, indent=1, ensure_ascii=False))
+        print("dev exact", c["before"]["exact"], "->", c["after"]["exact"], "| harm", c["before"]["harm_rate"], "->",
+              c["after"]["harm_rate"])
+        return
+    sealed = g.sealed(f"gate: loop A round {a.round}: {a.label} ({a.data} gold + human)")
+    before, after = _placed(a.before), _placed(a.after)
+    c = compare(sealed, before, after, brands)
+    c.pop("changes")                                  # which sealed rows moved stays unseen: sealed is not for tuning
+    hs = [r for r in human if goldmod.is_sealed(r.brand) and r.id in before and r.id in after]   # same read
+    h = compare(hs, before, after, brands) if human is not rows else None
     mb, ma = (json.loads((d / "metrics.json").read_text(encoding="utf-8")) for d in (a.before, a.after))
     ab, aa = mb["shares_subset"]["to_agent"][1], ma["shares_subset"]["to_agent"][1]
     keep, why = decide(c, ab, aa)
     out = {"round": a.round, "label": a.label, "keep": keep, "why": why, **c, "agent_before": ab, "agent_after": aa,
            "sealed_reads_total": g.reads()}
+    if h:
+        out["human_sealed"] = {"before": h["before"], "after": h["after"], "better": h["better"], "worse": h["worse"]}
+        ma["human_sealed"] = h["after"]
     (a.after / f"gate-r{a.round}.json").write_text(json.dumps(out, indent=1), encoding="utf-8")
     ma["sealed"], ma["sealed_reads_logged"] = c["after"], g.reads()
     kpis.append(a.domain, kpis.row(a.domain, ma, "A", a.round, f"gate {'KEPT' if keep else 'DROPPED'}: {a.label}",

@@ -3,7 +3,7 @@
 # Synthetic examples below: delete them and keep the shape.
 
 - id: gold-food-r01-0001              # unique row id: gold-<domain>-r<round>-<nnnn>
-  listing_id: "examplemart:SKU-0001"  # joins to listings.jsonl `id`
+  listing_id: "examplemart:SKU-0001"  # the listing's id in the raw export
   title: Acme Crunch Bites BBQ 6 x 1.5 oz Snack Packs
   source: examplemart
   brand: acme snacks                  # lower-case brand; code uses it for the sealed split

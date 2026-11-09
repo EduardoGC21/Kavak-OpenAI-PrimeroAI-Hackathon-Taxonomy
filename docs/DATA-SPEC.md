@@ -10,8 +10,12 @@ Taxo builds a product tree for a domain (brand › product › variant, or make 
 marketplace listing on its node. It works through fixed steps: **parse** the title, find the **brand**, look the name
 up in the brand's **registry**, count names across listings (**lattice**), then apply **rules**. An **agent** handles
 only what is left ([SPEC.md §4](../SPEC.md)). The tree grows as agents propose rules. A rule is kept only if it
-holds on **gold**, the labels a person made. Your job is to give it clean listings, the tree you already have, gold
-labels, a few rule proposals and your domain's conventions.
+holds on **gold**, the labels a person made.
+
+**What is yours and what is Taxo's.** You hand over the data **raw, as it came**, with a `SOURCE.md` that says what
+is in it. Mapping fields, cleaning titles, finding the brand, reading the catalogue into a tree and placing listings
+are Taxo's job: that is what the system is for. What only a person can give is **gold labels**, your domain's
+**conventions** and a few **rule proposals**. Spend your time there.
 
 **Two hard rules:**
 
@@ -27,11 +31,12 @@ Each item is a file in your domain's Drive folder (§8). Every folder has a `SOU
 
 Where you start: Edu's subset at `C:\Work\meta-pedia-data\edu-subsets-2026-11-09\food\` has 12,230 listings over 80
 brands and 10,534 nodes. Edu's full exports are at `G:\My Drive\Showcase Data\EDU_FINAL_PEDIA\`, and the build script
-is `C:\Work\meta-pedia-data\make_edu_subsets.py`. **There is no gold yet.**
+is `C:\Work\meta-pedia-data\make_edu_subsets.py`. **There is no listing gold yet.** Edu's export has
+`matching/acceptance_results.parquet`, but those are 180 search-term tests (term → category, pass or fail), not listing
+placements. Pedia's 113 food owner labels have no known file.
 
-- [ ] `listings/listings.jsonl` in the shape of §3. Map Edu's `id`, `title`, `brand`, `source`, `size`, `pack`,
-      `units` and `multipack` into it. Keep `pedia_path` and `pedia_level` in `extra` as a baseline, **never as truth**.
-- [ ] `taxonomy/taxonomy.jsonl`: Edu's nodes, mapped to §4.2 (`label` becomes `name`).
+- [ ] `listings/` and `taxonomy/`: Edu's subset **as it is**, plus a `SOURCE.md` (§3). No mapping needed. Note that
+      `pedia_*` fields are Pedia's own answer: a baseline, **never truth**, and hidden while labelling.
 - [ ] `gold/round-01.yaml`: **50** blind labels sampled at random (§5), plus **25** of them labelled again by a
       second person (`gold/round-01-second.yaml`).
 - [ ] `rules/rules.yaml`: 3 code-rule proposals (§7.1). `rules/agentic.yaml`: 3 agentic proposals (§7.2). Start
@@ -43,22 +48,20 @@ is `C:\Work\meta-pedia-data\make_edu_subsets.py`. **There is no gold yet.**
 
 Where you start: Edu's subset at `C:\Work\meta-pedia-data\edu-subsets-2026-11-09\fragrance\` has 14,344 listings
 over 80 brands and 15,580 nodes. It also carries the Pedia rule ids that fired (`rule_ids`, `rules_seen.json`).
-Gold already exists:
+**Gold is already in place** at `G:\My Drive\meta-pedia-data\fragrance\gold\`, with its `SOURCE.md`:
 
-- Harry's **247** labelled rows: `C:\Work\Pedia-Harness\repo\tests\fixtures\fresh150-harry.yaml` (150) and
-  `exp01-harry-correct.yaml` (97).
-- **1,486** owner reviews, recoverable with
-  `git -C C:\Work\Pedia-Harness\repo show 0cd4be60:tests/fixtures/owner-structure.jsonl`.
+- Harry's **247** labelled rows: `fresh150-harry.yaml` (150: 138 accept, 12 reject) and `exp01-harry-correct.yaml`
+  (97). Only 72 of their titles appear word for word in Edu's subset; the rest still run as title-only cases.
+- **1,486** owner reviews, `owner-structure.jsonl` (1,040 right, 431 wrong, 15 unscored; 5 brands), from Pedia commit
+  `0cd4be60`. They were made on an older graph, so node ids need mapping by name.
+
+None of it is a random sample: it comes from a few labelled brands.
 
 Tasks:
 
-- [ ] `listings/listings.jsonl` (§3). Map `concentration`, `gender`, `volume_ml`, `product_form`, `seller_name`,
-      `brand_name` and `manufacturer_name` into it. `identifiers_json` is empty in Edu's subset, so leave
-      `identifiers` empty rather than guess.
-- [ ] `taxonomy/taxonomy.jsonl`: Edu's nodes (§4.2).
-- [ ] `gold/harry-247.yaml`: Harry's rows, copied **as they are** plus `labelled_by: harry` and `labelled_at`. Do not
-      relabel them. Note in `SOURCE.md` that they were **not** sampled at random: they came from labelled brands.
-- [ ] `gold/owner-structure.jsonl`: the 1,486 owner reviews, unchanged, with `SOURCE.md` naming commit `0cd4be60`.
+- [ ] `listings/` and `taxonomy/`: Edu's subset **as it is**, plus a `SOURCE.md` (§3). Say there that
+      `identifiers_json` is empty in this subset and the marketplace brand (`brand_name`) is on only 6,477 of 14,344 rows.
+- [ ] Check the gold folder's `SOURCE.md` and do not relabel Harry's rows.
 - [ ] `gold/round-01.yaml`: **50** new blind labels sampled at random (§5), because the existing gold is not a random
       sample. Add a second labeller on 25.
 - [ ] `rules/` and `conventions/` as for food. The repo already has 10 agentic proposals and the 5 conventions in
@@ -72,54 +75,44 @@ taxonomy is 1,574 catalogue versions from Autocosmos (1,222) and brand sites (35
 
 The sources name things differently. Seminuevos gives `brand`, `model`, `version`, `year` and `kilometers`; Kavak
 gives `make`, `model` and `year` but rarely `version`; Mercado Libre and Carshop give only a `title`. Only **32** rows
-have a VIN.
+have a VIN. Reconciling all of that, reading the catalogue into make › model › year › version nodes and decoding VINs
+(NHTSA vPIC) is **Taxo's job**, in `domains/cars/adapter.py` and the parse step. You do not reshape anything.
 
-- [ ] `listings/listings.jsonl` (§3), with one shape across all five sources. Put `make`/`brand` into `brand_field`,
-      `kilometers`/`km` into `fields.km` and `price`/`price_mxn` into `price` (MXN). Drop the rows whose
-      `record_type` is `search` if they are duplicates of a `listing` row, and say so in `SOURCE.md`.
-- [ ] `taxonomy/taxonomy.jsonl`: the catalogue, one node per make, model, year and version (§4.2). Keep `msrp_mxn` and
-      the source URL on the version node.
-- [ ] `identifiers`: put a VIN in `identifiers.vin` only when it is 17 characters. Decoding it with NHTSA vPIC (make,
-      model, year) is the system's job; do not decode it by hand. vPIC is weak on Mexico-only versions, so treat it as
-      evidence for make, model and year only.
-- [ ] `gold/round-01.yaml`: **50** blind labels sampled at random (§5), at least 10 per source if the sample allows,
-      plus a second labeller on 25.
+- [ ] `listings/` and `taxonomy/`: the scrape and the catalogue **as they are**, plus a `SOURCE.md` per folder (§3)
+      that names each source's fields.
+- [ ] `gold/`: **Diego** labels the car gold and uploads it here: **50** blind labels sampled at random (§5), at least
+      10 per source if the sample allows, plus a second labeller on 25.
 - [ ] `rules/` and `conventions/`. The most important convention to decide is **when two version names are the same
       trim** ("Advance" vs "Advance CVT"); `domains/cars/pack.yaml` leaves it as a TODO.
 
-## 3. Listings: `listings/listings.jsonl`
+## 3. Listings: hand them over raw
 
-One JSON object per line, UTF-8. Whatever the source called a field, rename it to the names below. Put anything else
-you want to keep under `extra`. Template: [`listings.example.jsonl`](templates/listings.example.jsonl).
+Put the export or scrape in `listings/` **as it came**: JSONL, CSV or parquet, any field names. Do not rename, clean,
+translate, fill in or drop rows because they look hard. Hard listings are the point. Each domain's adapter
+(`domains/<d>/adapter.py`) maps the raw fields to Taxo's `Listing`, and the parse step does the rest.
 
-| Field | Req. | Type | Used by the pipeline? |
-|---|---|---|---|
-| `id` | **yes** | str | Join key for gold. Stable and unique: `<source>:<source's own id or URL>`. |
-| `domain` | **yes** | str | `food` · `fragrance` · `cars`. |
-| `source` | **yes** | str | Marketplace or scrape (`amazon`, `kavak`, ...). Used in sampling and in Loop B. |
-| `title` | **yes** | str | **Yes, the main input.** Use it exactly as listed; do not clean it. |
-| `brand_field` | if present | str | **Yes**, in the brand step. The marketplace's brand field, as given. |
-| `seller` | if present | str | **Yes**, to keep shops from being taken as brands ("a shop is not a brand"). |
-| `identifiers` | if present | obj | **Yes**, settles the listing when present: `{gtin, upc, ean, vin, part_number}`. |
-| `description` | optional | str | **Yes**, on the `agent_evidence` route only. |
-| `variant_options` | optional | obj | **Yes**, on `agent_evidence` only, as evidence. Never moves a listing on its own. |
-| `fields` | domain | obj | **Yes**: the domain fields below. |
-| `url` | optional | str | Carried along. Labellers open it. |
-| `price`, `currency` | optional | num, str | Carried along; rolls up the tree once placed. |
-| `scraped_at` | **yes** | str | ISO date. Carried along. |
-| `extra` | optional | obj | Carried along, never read. Baselines (`pedia_path`), raw blobs. |
+What you write is the **field map** in `SOURCE.md`: for each source, which of its fields holds each item below, or
+"none". That is all the adapter needs.
 
-Domain `fields`:
-
-| Domain | Field | Notes |
+| Taxo looks for | Used how | Often missing? |
 |---|---|---|
-| food | `size` (str, e.g. `"11.3 oz"`), `pack_count` (int), `multipack` (bool) | Parsed but **never a node**. Count checks read it. |
-| fragrance | `concentration` (`edp`, `edt`, `parfum`, `extrait`, `edc`), `volume_ml` (num), `gender` (`women`, `men`, `unisex`), `form` (`spray`, `body mist`, ...) | Concentration and audience separate products; volume never does. |
-| cars | `make`, `model`, `version`, `year` (int, model year), `km` (int), `transmission`, `body_type` | Copy what the source gives. Leave `version` blank rather than guess. |
+| a stable id | join key for gold; must not change between exports | no |
+| source / marketplace | sampling, Loop B | no |
+| title | **the main input** | sometimes: Kavak's listing rows have none; the adapter builds it from make, model, version and year |
+| marketplace brand field | **one clue** in the brand step | **yes**: on 6,477 of 14,344 fragrance rows; none on Mercado Libre or Carshop |
+| seller / shop | keeps shops from being taken as brands | often |
+| GTIN, UPC, EAN, VIN, part number | settles the listing when present | **yes**: empty in Edu's fragrance subset; 32 VINs in 8,642 cars |
+| description, variant options | evidence on the `agent_evidence` route only | often |
+| domain fields (size and pack; concentration, volume and gender; make, model, version, year and km) | checks and evidence | varies by source |
+| URL, price, scraped date | carried along; labellers open the URL | — |
 
-**Rules for this file.** Leave out empty values instead of writing `""`. Do not translate titles. Do not fix titles.
-Do not drop listings because they look hard: hard listings are the point. The only rows to remove are exact duplicates
-of the same `id`.
+**The brand field is a clue, not an answer.** Many rows have none, and where it exists it can name a seller, a
+licensor or a parent company. Finding the brand is step 2 of the pipeline (brand field, then the maker after "by",
+the title's first words, the brand's site, sibling listings). Edu's `brand` column is Pedia's own brand assignment,
+not a marketplace field: it is a baseline, like `pedia_path`.
+
+[`listings.example.jsonl`](templates/listings.example.jsonl) shows, for reference only, the shape the adapter
+produces. You do not need to produce it.
 
 ## 4. Taxonomy and registry
 
@@ -134,17 +127,15 @@ of the same `id`.
 Size, pack count and multipacks are never levels in any domain. The car catalogue has no generation, so it is optional.
 The current car adapter orders year before version; the cars owner settles that order as a convention (§6).
 
-### 4.2 An existing tree: `taxonomy/taxonomy.jsonl`
+### 4.2 An existing tree: `taxonomy/`
 
-If a tree exists (Edu's export, the car catalogue), hand it over as one node per line:
+If a tree or catalogue exists (Edu's export, the car catalogue), put it in `taxonomy/` **as it came**, with a
+`SOURCE.md` that says which fields hold the node id, the parent, the level and the name (for the car catalogue: make,
+model, year and version columns). The adapter turns it into nodes like this one; you do not:
 
 ```json
-{"id": "acme/p_crunch", "brand": "Acme Snacks", "level": "product", "name": "Crunch Bites", "parent_id": "acme/b", "status": "existing", "source": "edu-export-v9f"}
+{"id": "acme/p_crunch", "brand": "Acme Snacks", "level": "product", "name": "Crunch Bites", "parent_id": "acme/b"}
 ```
-
-`id` must be unique across the file; prefix it with the brand when the source's ids are only unique per brand.
-`parent_id` is null only for brands. Keep any extra source fields under `extra`. For cars, the id is the slugged path
-(`volkswagen/jetta/2021/comfortline-1-4-tsi`), as `domains/cars/adapter.py` builds it.
 
 An existing tree is a **starting point**, not truth. Pedia's export contains errors that gold is meant to find.
 
@@ -178,7 +169,7 @@ of Harry's `fresh150-harry.yaml`, plus who labelled the row and when. Template:
 
 ```yaml
 - id: gold-food-r01-0007            # unique row id
-  listing_id: "amazon:B0EXAMPLE1"    # joins to listings.jsonl
+  listing_id: "amazon:B0EXAMPLE1"    # the listing's id in the raw export
   title: Acme Crunch Bites BBQ 6 x 1.5 oz Snack Packs
   source: amazon
   brand: acme snacks
@@ -201,7 +192,7 @@ of Harry's `fresh150-harry.yaml`, plus who labelled the row and when. Template:
 
 ### 5.1 Protocol
 
-1. **Sample at random.** Draw uniformly from `listings.jsonl` with a fixed seed, and record the seed in `SOURCE.md`.
+1. **Sample at random.** Draw uniformly from the listings file with a fixed seed, and record the seed in `SOURCE.md`.
    Do not choose rows by hand: hand-picked rows are the easy or interesting ones, and the score will not hold on the
    rest. For example:
    `python -c "import random,json;L=open('listings.jsonl',encoding='utf-8').readlines();random.seed(20261109);print(*random.sample(L,50),sep='')" > gold/sample-r01.jsonl`
@@ -324,16 +315,16 @@ and pointers. Data lives on Drive:
 
 ```
 G:\My Drive\meta-pedia-data\<domain>\          <domain> = food | fragrance | cars
-  listings\     listings.jsonl              (§3)        SOURCE.md
-  taxonomy\     taxonomy.jsonl              (§4.2)      SOURCE.md
+  listings\     the raw export, as it came  (§3)        SOURCE.md with the field map
+  taxonomy\     the raw tree or catalogue   (§4.2)      SOURCE.md with the field map
   registry\     <brand-slug>.yaml           (§4.4)      SOURCE.md
   gold\         round-NN.yaml, round-NN-second.yaml, sample-rNN.jsonl, imported files   SOURCE.md
   rules\        rules.yaml, agentic.yaml    (§7)        SOURCE.md
   conventions\  conventions.yaml            (§6)        SOURCE.md
 ```
 
-- **Formats:** JSONL for rows, YAML for anything a person writes or reads (gold, rules, conventions, registry).
-  Parquet is fine for a large raw export, but put it under `listings\raw\` next to the JSONL; the pipeline reads JSONL.
+- **Formats:** raw exports in whatever format they came (JSONL, CSV, parquet). YAML for anything a person writes
+  (gold, rules, conventions, registry).
 - **`SOURCE.md` in every folder:** where the data came from (path, export or scrape run), the date, the filters and
   sampling (with the seed), the row counts, the field mapping, and anything known to be wrong. Template:
   [`SOURCE.example.md`](templates/SOURCE.example.md).
